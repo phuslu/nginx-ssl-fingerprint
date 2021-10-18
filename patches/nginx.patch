@@ -1,0 +1,54 @@
+diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
+index 91b415ca..1d02f9ba 100644
+--- a/src/event/ngx_event_openssl.c
++++ b/src/event/ngx_event_openssl.c
+@@ -1588,6 +1588,27 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+     return NGX_OK;
+ }
+ 
++int
++ngx_ssl_client_hello_cb(SSL *s, int *al, void *arg) {
++    ngx_connection_t  *c = arg;
++
++    if (c == NULL) {
++        return 1;
++    }
++
++    if (c->ssl == NULL) {
++        return 1;
++    }
++
++    c->ssl->extensions.data = NULL;
++    c->ssl->extensions.len = SSL_ctrl(c->ssl->connection, SSL_CTRL_GET_TLSEXT_EXTENSIONS, 0, NULL);
++    if (c->ssl->extensions.len) {
++        c->ssl->extensions.data = ngx_pnalloc(c->pool, c->ssl->extensions.len);
++        SSL_ctrl(c->ssl->connection, SSL_CTRL_GET_TLSEXT_EXTENSIONS, 0, c->ssl->extensions.data);
++    }
++
++    return 1;
++}
+ 
+ ngx_int_t
+ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1603,6 +1624,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
+ 
+     ngx_ssl_clear_error(c->log);
+ 
++    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_ssl_client_hello_cb, c);
++
+     n = SSL_do_handshake(c->ssl->connection);
+ 
+     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
+index 61da0c5d..a3f9ad46 100644
+--- a/src/event/ngx_event_openssl.h
++++ b/src/event/ngx_event_openssl.h
+@@ -99,6 +99,8 @@ struct ngx_ssl_connection_s {
+     unsigned                    in_early:1;
+     unsigned                    early_preread:1;
+     unsigned                    write_blocked:1;
++
++    ngx_str_t                   extensions;
+ };
+ 
+ 
