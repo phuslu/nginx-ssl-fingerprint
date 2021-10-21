@@ -1,5 +1,5 @@
 diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
-index fd0c5a9996..2112d74c55 100644
+index fd0c5a99..64b67eee 100644
 --- a/include/openssl/ssl.h
 +++ b/include/openssl/ssl.h
 @@ -1305,6 +1305,8 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
@@ -7,12 +7,12 @@ index fd0c5a9996..2112d74c55 100644
  # define SSL_CTRL_GET_SIGNATURE_NID              132
  # define SSL_CTRL_GET_TMP_KEY                    133
 +# define SSL_CTRL_GET_TLSEXT_EXTENSIONS          233
-+# define SSL_CTRL_GET_VERSION_CIPHERS_CURVES     234
++# define SSL_CTRL_GET_RAW_GROUPS                 234
  # define SSL_CERT_SET_FIRST                      1
  # define SSL_CERT_SET_NEXT                       2
  # define SSL_CERT_SET_SERVER                     3
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 76d9fda46e..7389d4a4c3 100644
+index 76d9fda4..7389d4a4 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
 @@ -131,6 +131,11 @@ extern "C" {
@@ -28,10 +28,10 @@ index 76d9fda46e..7389d4a4c3 100644
  # define TLSEXT_TYPE_session_ticket              35
  
 diff --git a/ssl/s3_lib.c b/ssl/s3_lib.c
-index b256a4b935..87b0d9871f 100644
+index b256a4b9..20511eb2 100644
 --- a/ssl/s3_lib.c
 +++ b/ssl/s3_lib.c
-@@ -3725,6 +3725,87 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
+@@ -3725,6 +3725,43 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
              return (int)s->ext.peer_ecpointformats_len;
          }
  #endif
@@ -65,62 +65,18 @@ index b256a4b935..87b0d9871f 100644
 +
 +            return num*2;
 +        }
-+    case SSL_CTRL_GET_VERSION_CIPHERS_CURVES:
++    case SSL_CTRL_GET_RAW_GROUPS:
 +        {
-+            unsigned char *data = parg;
-+
-+            size_t len = 0;
-+            if (data == NULL) {
-+                len += 2;
-+                if (s->s3 != NULL) {
-+                    len += 1 + (size_t)s->s3->tmp.ciphers_rawlen;
-+                }
-+                if (s->session != NULL) {
-+                    len += 1 + (size_t)s->ext.peer_supportedgroups_len*2;
-+                    len += 1 + (size_t)s->ext.peer_ecpointformats_len;
-+                }
-+
-+                return (int)len;
++            if (parg) {
++                *(unsigned char **)parg = s->ext.peer_supportedgroups;
 +            }
-+
-+            /* Version */
-+            *(unsigned short*)data = s->version;
-+            len += 2;
-+
-+            /* Ciphers */
-+            if (s->s3 != NULL && s->s3->tmp.ciphers_raw != NULL) {
-+                data[len++] = (unsigned char)s->s3->tmp.ciphers_rawlen;
-+                memcpy(data+len, s->s3->tmp.ciphers_raw, s->s3->tmp.ciphers_rawlen);
-+                len += s->s3->tmp.ciphers_rawlen;
-+            } else {
-+                data[len++] = 0;
-+            }
-+
-+            /* Elliptic curve points */
-+            if (s->session != NULL && s->ext.peer_supportedgroups_len > 0) {
-+                data[len++] = (unsigned char)s->ext.peer_supportedgroups_len*2;
-+                memcpy(data+len, s->ext.peer_supportedgroups, s->ext.peer_supportedgroups_len*2);
-+                len += s->ext.peer_supportedgroups_len*2;
-+            } else {
-+                data[len++] = 0;
-+            }
-+
-+            /* Elliptic curve point formats */
-+            if (s->session != NULL && s->ext.peer_ecpointformats != NULL) {
-+                data[len++] = (unsigned char)s->ext.peer_ecpointformats_len;
-+                memcpy(data+len, s->ext.peer_ecpointformats, s->ext.peer_ecpointformats_len);
-+                len += s->ext.peer_ecpointformats_len;
-+            } else {
-+                data[len++] = 0;
-+            }
-+
-+            return (int)len;
++            return (int)s->ext.peer_supportedgroups_len;
 +        }
  
      default:
          break;
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 9f346e30e8..cdb2b60022 100644
+index 9f346e30..cdb2b600 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
 @@ -714,6 +714,8 @@ typedef enum tlsext_index_en {
@@ -133,7 +89,7 @@ index 9f346e30e8..cdb2b60022 100644
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 0f39275baa..8bca6e8e4e 100644
+index 0f39275b..8bca6e8e 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
 @@ -377,6 +377,22 @@ static const EXTENSION_DEFINITION ext_defs[] = {

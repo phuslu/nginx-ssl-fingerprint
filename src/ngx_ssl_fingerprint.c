@@ -3,47 +3,157 @@
 
 #include <ngx_core.h>
 
+#define IS_GREASE_CODE(code) (((code)&0x0f0f) == 0x0a0a && ((code)&0xff) == ((code)>>8))
+
+static inline
+unsigned char *append_uint8(unsigned char* dst, unsigned char n)
+{
+    if (n > 99) {
+        *(dst+2) = n % 10 + '0';
+        n /= 10;
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 3;
+    } else if (n > 9) {
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 2;
+    } else {
+        *dst = n + '0';
+        dst++;
+    }
+
+    return dst;
+}
+
+static inline
+unsigned char *append_uint16(unsigned char* dst, unsigned short n)
+{
+    if (n > 9999) {
+        *(dst+4) = n % 10 + '0';
+        n /= 10;
+        *(dst+3) = n % 10 + '0';
+        n /= 10;
+        *(dst+2) = n % 10 + '0';
+        n /= 10;
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 5;
+    } else if (n > 999) {
+        *(dst+3) = n % 10 + '0';
+        n /= 10;
+        *(dst+2) = n % 10 + '0';
+        n /= 10;
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 4;
+    } else if (n > 99) {
+        *(dst+2) = n % 10 + '0';
+        n /= 10;
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 3;
+    } else if (n > 9) {
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 2;
+    } else {
+        *dst = n + '0';
+        dst++;
+    }
+
+    return dst;
+}
+
 int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *fingerprint)
 {
 
     SSL *ssl;
+    long len = 0;
+    unsigned char *pstr = NULL, *pdata = NULL, *pend = NULL;
+    unsigned short n = 0;
 
-    if (!c->ssl)
-    {
+    if (!c->ssl) {
         return NGX_DECLINED;
     }
 
-    if (!c->ssl->handshaked)
-    {
+    if (!c->ssl->handshaked) {
         return NGX_DECLINED;
     }
 
     ssl = c->ssl->connection;
-    if (!ssl)
-    {
+    if (!ssl) {
         return NGX_DECLINED;
     }
 
-    // version + ciphers & curves & curve formats + extensions.
-    fingerprint->len = SSL_ctrl(c->ssl->connection, SSL_CTRL_GET_VERSION_CIPHERS_CURVES, 0, NULL) + 1 + c->ssl->extensions.len;
+    fingerprint->data = ngx_pnalloc(pool, 384);
+    pstr = fingerprint->data;
 
-    // Alloc all needed memory.
-    fingerprint->data = ngx_pnalloc(pool, fingerprint->len);
-    // Get version & ciphers & curves & curve formats data.
-    SSL_ctrl(c->ssl->connection, SSL_CTRL_GET_VERSION_CIPHERS_CURVES, 0, fingerprint->data);
+    /* version */
+    pstr = append_uint16(pstr, (unsigned short)SSL_version(ssl));
 
-    // Append extensions data and free its memory.
-    if (c->ssl->extensions.len) {
-        fingerprint->data[fingerprint->len - c->ssl->extensions.len - 1] = (unsigned char)c->ssl->extensions.len/2;
-        memcpy(fingerprint->data + fingerprint->len - c->ssl->extensions.len, c->ssl->extensions.data, c->ssl->extensions.len);
-        ngx_pfree(c->pool, c->ssl->extensions.data);
-    } else {
-        fingerprint->data[fingerprint->len-1] = 0;
+    /* ciphers */
+    if ((len = SSL_ctrl(ssl, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &pdata)) != 0) {
+        *pstr++ = ',';
+        pend = pdata + len;
+        while (pdata < pend) {
+            n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
+            if (!IS_GREASE_CODE(n)) {
+                pstr = append_uint16(pstr, n);
+                *pstr++ = '-';
+            }
+            pdata += 2;
+        }
+        *(pstr-1) = ',';
     }
 
-    ngx_log_error(NGX_LOG_ERR, c->log, 0, "clien hello version: [%d]\n", *(unsigned short*)fingerprint->data);
+    /* extensions */
+    if (c->ssl->extensions.len) {
+        pdata = c->ssl->extensions.data;
+        pend = pdata + c->ssl->extensions.len;
+        while (pdata < pend) {
+            n = *(unsigned short*)pdata;
+            if (!IS_GREASE_CODE(n)) {
+                pstr = append_uint16(pstr, n);
+                *pstr++ = '-';
+            }
+            pdata += 2;
+        }
+        *(pstr-1) = ',';
+    }
 
-    ngx_log_error(NGX_LOG_ERR, c->log, 0, "clien hello fingerprint: [%d]\n", fingerprint->len);
+    /* curves */
+    if ((len = SSL_ctrl(ssl, SSL_CTRL_GET_RAW_GROUPS, 0, &pdata)) != 0) {
+        pend = pdata + len*2;
+        while (pdata < pend) {
+            n = *(unsigned short*)pdata;
+            if (!IS_GREASE_CODE(n)) {
+                pstr = append_uint16(pstr, n);
+                *pstr++ = '-';
+            }
+            pdata += 2;
+        }
+        *(pstr-1) = ',';
+    }
+
+    /* formats */
+    if ((len = SSL_ctrl(ssl, SSL_CTRL_GET_EC_POINT_FORMATS, 0, &pdata)) != 0) {
+        pend = pdata + len;
+        while (pdata < pend) {
+            pstr = append_uint8(pstr, *pdata);
+            *pstr++ = '-';
+            pdata++;
+        }
+    }
+
+    /* null terminator */
+    *--pstr = 0;
+
+    fingerprint->len = pstr - fingerprint->data;
+
+    ngx_log_error(NGX_LOG_ERR, c->log, 0, "clien hello fingerprint: [%V]\n", fingerprint);
+
+    ngx_pfree(c->pool, c->ssl->extensions.data);
 
     return NGX_OK;
 }
