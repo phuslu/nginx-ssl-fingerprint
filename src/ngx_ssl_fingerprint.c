@@ -120,6 +120,8 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
             pdata += 2;
         }
         *(pstr-1) = ',';
+        // free memory
+        ngx_pfree(c->pool, c->ssl->extensions.data);
     }
 
     /* curves */
@@ -152,8 +154,6 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     fingerprint->len = pstr - fingerprint->data;
 
     ngx_log_error(NGX_LOG_ERR, c->log, 0, "clien hello fingerprint: [%V]\n", fingerprint);
-
-    ngx_pfree(c->pool, c->ssl->extensions.data);
 
     return NGX_OK;
 }

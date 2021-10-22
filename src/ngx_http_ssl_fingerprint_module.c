@@ -2,7 +2,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <ngx_log.h>
-#include <ngx_md5.h>
+#include <openssl/md5.h>
 
 #include "ngx_ssl_fingerprint.h"
 
@@ -35,6 +35,38 @@ ngx_module_t ngx_http_ssl_fingerprint_module = {
 
 
 static ngx_int_t
+ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
+                 ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_str_t fingerprint = ngx_null_string;
+    MD5_CTX ctx;
+    u_char hash[16] = {0};
+
+    if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_fingerprint(r->connection, r->pool, &fingerprint) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, fingerprint.data, fingerprint.len);
+    MD5_Final(hash, &ctx);
+    ngx_hex_dump(fingerprint.data, hash, 16);
+
+    v->data = fingerprint.data;
+    v->len = 32;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_ssl_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
@@ -60,6 +92,10 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
 }
 
 static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
+    {ngx_string("http_ssl_ja3_hash"),
+     NULL,
+     ngx_http_ssl_fingerprint_hash,
+     0, 0, 0},
     {ngx_string("http_ssl_ja3"),
      NULL,
      ngx_http_ssl_fingerprint,
