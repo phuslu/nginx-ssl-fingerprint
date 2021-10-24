@@ -69,7 +69,6 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
 {
 
     SSL *ssl;
-    long len = 0;
     unsigned char *pstr = NULL, *pdata = NULL, *pend = NULL;
     unsigned short n = 0;
 
@@ -93,9 +92,10 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     pstr = append_uint16(pstr, (unsigned short)SSL_version(ssl));
 
     /* ciphers */
-    if ((len = SSL_ctrl(ssl, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &pdata)) != 0) {
+    if (c->ssl->ciphers.len) {
         *pstr++ = ',';
-        pend = pdata + len;
+        pdata = c->ssl->ciphers.data;
+        pend = pdata + c->ssl->ciphers.len;
         while (pdata < pend) {
             n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
             if (!IS_GREASE_CODE(n)) {
@@ -120,13 +120,12 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
             pdata += 2;
         }
         *(pstr-1) = ',';
-        // free memory
-        ngx_pfree(c->pool, c->ssl->extensions.data);
     }
 
     /* curves */
-    if ((len = SSL_ctrl(ssl, SSL_CTRL_GET_RAW_GROUPS, 0, &pdata)) != 0) {
-        pend = pdata + len*2;
+    if (c->ssl->groups.len) {
+        pdata = c->ssl->groups.data;
+        pend = pdata + c->ssl->groups.len*2;
         while (pdata < pend) {
             n = *(unsigned short*)pdata;
             if (!IS_GREASE_CODE(n)) {
@@ -139,8 +138,9 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     }
 
     /* formats */
-    if ((len = SSL_ctrl(ssl, SSL_CTRL_GET_EC_POINT_FORMATS, 0, &pdata)) != 0) {
-        pend = pdata + len;
+    if (c->ssl->points.len) {
+        pdata = c->ssl->points.data;
+        pend = pdata + c->ssl->points.len;
         while (pdata < pend) {
             pstr = append_uint8(pstr, *pdata);
             *pstr++ = '-';

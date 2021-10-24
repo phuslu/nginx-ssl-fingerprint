@@ -46,14 +46,20 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
         return NGX_OK;
     }
 
+
+    if (r->connection->ssl == NULL)
+    {
+        return NGX_OK;
+    }
+
     v->len = 1;
     v->data = (u_char*)"0";
 
-    SSL_ctrl(r->connection->ssl->connection, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &pdata);
+    pdata = r->connection->ssl->ciphers.data;
     if (pdata != NULL) {
         n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
-        if (!IS_GREASE_CODE(n)) {
-            v->data = (u_char*)"0";
+        if (IS_GREASE_CODE(n)) {
+            v->data = (u_char*)"1";
         }
     }
 

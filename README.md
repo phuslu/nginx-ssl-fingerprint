@@ -44,9 +44,9 @@ Build as a common nginx module.
 
 # Clone
 
-$ git clone https://github.com/phuslu/nginx-ssl-fingerprint
 $ git clone -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl
 $ git clone -b branches/stable-1.18 https://github.com/nginx/nginx
+$ git clone https://github.com/phuslu/nginx-ssl-fingerprint
 
 # Patch
 
@@ -62,5 +62,5 @@ $ make
 # Test
 
 $ sudo objs/nginx -c $(pwd)/../nginx-ssl-fingerprint/conf/nginx.conf
-$ curl -k https://127.0.0.1:8443 | hexdump -C
+$ curl -k https://127.0.0.1:8444
 ```

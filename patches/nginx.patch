@@ -1,8 +1,8 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 91b415ca..1d02f9ba 100644
+index 91b415ca..f76a19ff 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
-@@ -1588,6 +1588,27 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1588,6 +1588,47 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -27,10 +27,30 @@ index 91b415ca..1d02f9ba 100644
 +
 +    return 1;
 +}
++
++void
++ngx_ssl_client_hello_ext(ngx_connection_t *c) {
++    ngx_ssl_connection_t *ssl = c->ssl;
++
++    if (ssl == NULL) {
++        return;
++    }
++
++    ssl->ciphers.data = NULL;
++    ssl->ciphers.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &ssl->ciphers.data);
++
++    ssl->groups.data = NULL;
++    ssl->groups.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_RAW_GROUPS, 0, &ssl->groups.data);
++
++    ssl->points.data = NULL;
++    ssl->points.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_EC_POINT_FORMATS, 0, &ssl->points.data);
++
++    return;
++}
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1603,6 +1624,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1603,8 +1644,12 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -38,17 +58,24 @@ index 91b415ca..1d02f9ba 100644
 +
      n = SSL_do_handshake(c->ssl->connection);
  
++    ngx_ssl_client_hello_ext(c);
++
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+ 
+     if (n == 1) {
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 61da0c5d..a3f9ad46 100644
+index 61da0c5d..9651b3b5 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -99,6 +99,8 @@ struct ngx_ssl_connection_s {
+@@ -99,6 +99,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_early:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
++    ngx_str_t                   ciphers;
 +    ngx_str_t                   extensions;
++    ngx_str_t                   groups;
++    ngx_str_t                   points;
  };
  
  
