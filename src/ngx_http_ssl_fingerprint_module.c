@@ -35,30 +35,28 @@ ngx_module_t ngx_http_ssl_fingerprint_module = {
 
 
 static ngx_int_t
-ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
+ngx_http_ssl_greased(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_str_t fingerprint = ngx_null_string;
-    MD5_CTX ctx;
-    u_char hash[16] = {0};
+    unsigned char *pdata = NULL;
+    unsigned short n;
 
     if (r->connection == NULL)
     {
         return NGX_OK;
     }
 
-    if (ngx_ssl_fingerprint(r->connection, r->pool, &fingerprint) == NGX_DECLINED)
-    {
-        return NGX_ERROR;
+    v->len = 1;
+    v->data = (u_char*)"0";
+
+    SSL_ctrl(r->connection->ssl->connection, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &pdata);
+    if (pdata != NULL) {
+        n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
+        if (!IS_GREASE_CODE(n)) {
+            v->data = (u_char*)"0";
+        }
     }
 
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, fingerprint.data, fingerprint.len);
-    MD5_Final(hash, &ctx);
-    ngx_hex_dump(fingerprint.data, hash, 16);
-
-    v->data = fingerprint.data;
-    v->len = 32;
     v->valid = 1;
     v->no_cacheable = 1;
     v->not_found = 0;
@@ -91,14 +89,50 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
+                 ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_str_t fingerprint = ngx_null_string;
+    MD5_CTX ctx;
+    u_char hash[16] = {0};
+
+    if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_fingerprint(r->connection, r->pool, &fingerprint) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, fingerprint.data, fingerprint.len);
+    MD5_Final(hash, &ctx);
+    ngx_hex_dump(fingerprint.data, hash, 16);
+
+    v->data = fingerprint.data;
+    v->len = 32;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
 static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
-    {ngx_string("http_ssl_ja3_hash"),
+    {ngx_string("http_ssl_greased"),
      NULL,
-     ngx_http_ssl_fingerprint_hash,
+     ngx_http_ssl_greased,
      0, 0, 0},
     {ngx_string("http_ssl_ja3"),
      NULL,
      ngx_http_ssl_fingerprint,
+     0, 0, 0},
+    {ngx_string("http_ssl_ja3_hash"),
+     NULL,
+     ngx_http_ssl_fingerprint_hash,
      0, 0, 0},
 };
 
