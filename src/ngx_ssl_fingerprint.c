@@ -153,7 +153,9 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
 
     fingerprint->len = pstr - fingerprint->data;
 
-    ngx_log_error(NGX_LOG_ERR, c->log, 0, "clien hello fingerprint: [%V]\n", fingerprint);
+#if (NGX_DEBUG)
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "ssl fingerprint: [%V]\n", fingerprint);
+#endif
 
     return NGX_OK;
 }
