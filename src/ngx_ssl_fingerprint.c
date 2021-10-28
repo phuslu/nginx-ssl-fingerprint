@@ -85,8 +85,14 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
         return NGX_DECLINED;
     }
 
-    fingerprint->data = ngx_pnalloc(pool, 384);
+
+    n = 8 + c->ssl->ciphers.len * 3 + c->ssl->extensions.len * 3 + c->ssl->groups.len * 6 + c->ssl->points.len * 4;
+    fingerprint->data = ngx_pnalloc(pool, n);
     pstr = fingerprint->data;
+
+#if (NGX_DEBUG)
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "ssl fingerprint alloc bytes: [%d]\n", n);
+#endif
 
     /* version */
     pstr = append_uint16(pstr, (unsigned short)SSL_version(ssl));
