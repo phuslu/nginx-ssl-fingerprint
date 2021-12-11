@@ -86,7 +86,7 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     }
 
 
-    n = 8 + c->ssl->ciphers.len * 6 + c->ssl->extensions.len * 6 + c->ssl->groups.len * 6 + c->ssl->points.len * 4;
+    n = 32 + c->ssl->ciphers.len * 6 + c->ssl->extensions.len * 6 + c->ssl->groups.len * 6 + c->ssl->points.len * 4;
     fingerprint->data = ngx_pnalloc(pool, n);
     pstr = fingerprint->data;
 
