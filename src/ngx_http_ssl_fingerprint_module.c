@@ -108,6 +108,12 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
         return NGX_OK;
     }
 
+    v->data = ngx_pcalloc(r->pool, 32);
+
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
     if (ngx_ssl_fingerprint(r->connection, r->pool, &fingerprint) == NGX_DECLINED)
     {
         return NGX_ERROR;
@@ -116,9 +122,8 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
     MD5_Init(&ctx);
     MD5_Update(&ctx, fingerprint.data, fingerprint.len);
     MD5_Final(hash, &ctx);
-    ngx_hex_dump(fingerprint.data, hash, 16);
+    ngx_hex_dump(v->data, hash, 16);
 
-    v->data = fingerprint.data;
     v->len = 32;
     v->valid = 1;
     v->no_cacheable = 1;
