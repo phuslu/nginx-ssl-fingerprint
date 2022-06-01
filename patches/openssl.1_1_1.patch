@@ -1,18 +1,18 @@
 diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
-index fd0c5a99..64b67eee 100644
+index b744f6ccc1..a6aefe8051 100644
 --- a/include/openssl/ssl.h
 +++ b/include/openssl/ssl.h
-@@ -1305,6 +1305,8 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
- # define SSL_CTRL_GET_MAX_PROTO_VERSION          131
- # define SSL_CTRL_GET_SIGNATURE_NID              132
- # define SSL_CTRL_GET_TMP_KEY                    133
+@@ -1275,6 +1275,8 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
+ # define SSL_CTRL_SET_SIGALGS                    97
+ # define SSL_CTRL_SET_SIGALGS_LIST               98
+ # define SSL_CTRL_CERT_FLAGS                     99
 +# define SSL_CTRL_GET_TLSEXT_EXTENSIONS          233
 +# define SSL_CTRL_GET_RAW_GROUPS                 234
- # define SSL_CERT_SET_FIRST                      1
- # define SSL_CERT_SET_NEXT                       2
- # define SSL_CERT_SET_SERVER                     3
+ # define SSL_CTRL_CLEAR_CERT_FLAGS               100
+ # define SSL_CTRL_SET_CLIENT_SIGALGS             101
+ # define SSL_CTRL_SET_CLIENT_SIGALGS_LIST        102
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 76d9fda4..7389d4a4 100644
+index 76d9fda46e..7389d4a4c3 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
 @@ -131,6 +131,11 @@ extern "C" {
@@ -28,10 +28,10 @@ index 76d9fda4..7389d4a4 100644
  # define TLSEXT_TYPE_session_ticket              35
  
 diff --git a/ssl/s3_lib.c b/ssl/s3_lib.c
-index b256a4b9..20511eb2 100644
+index 32f9b25710..870d313997 100644
 --- a/ssl/s3_lib.c
 +++ b/ssl/s3_lib.c
-@@ -3725,6 +3725,43 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
+@@ -3731,6 +3731,43 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
              return (int)s->ext.peer_ecpointformats_len;
          }
  #endif
@@ -76,7 +76,7 @@ index b256a4b9..20511eb2 100644
      default:
          break;
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 9f346e30..cdb2b600 100644
+index 4c36cd5c89..3526bfa474 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
 @@ -714,6 +714,8 @@ typedef enum tlsext_index_en {
@@ -89,7 +89,7 @@ index 9f346e30..cdb2b600 100644
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 0f39275b..8bca6e8e 100644
+index 0f39275baa..8bca6e8e4e 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
 @@ -377,6 +377,22 @@ static const EXTENSION_DEFINITION ext_defs[] = {
