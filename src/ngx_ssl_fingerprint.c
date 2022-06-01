@@ -71,6 +71,7 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     SSL *ssl;
     unsigned char *pstr = NULL, *pdata = NULL, *pend = NULL;
     unsigned short n = 0;
+    unsigned short tls13_fixed = 0;
 
     if (!c->ssl) {
         return NGX_DECLINED;
@@ -105,6 +106,13 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
         while (pdata < pend) {
             n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
             if (!IS_GREASE_CODE(n)) {
+                if (!tls13_fixed && (*pdata == 0x13)) {
+                    fingerprint->data[2] = '2';
+                    tls13_fixed = 1;
+#if (NGX_DEBUG)
+                    ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ssl fingerprint fixup for tls1.3");
+#endif
+                }
                 pstr = append_uint16(pstr, n);
                 *pstr++ = '-';
             }
