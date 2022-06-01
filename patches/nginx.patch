@@ -1,8 +1,8 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 91b415ca..f76a19ff 100644
+index 91b415ca..9fd9b261 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
-@@ -1588,6 +1588,47 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1588,6 +1588,48 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -19,10 +19,11 @@ index 91b415ca..f76a19ff 100644
 +    }
 +
 +    c->ssl->extensions.data = NULL;
-+    c->ssl->extensions.len = SSL_ctrl(c->ssl->connection, SSL_CTRL_GET_TLSEXT_EXTENSIONS, 0, NULL);
++    c->ssl->extensions.len = 0;
++    SSL_client_hello_get_extension_order(c->ssl->connection, NULL, &c->ssl->extensions.len);
 +    if (c->ssl->extensions.len) {
-+        c->ssl->extensions.data = ngx_pnalloc(c->pool, c->ssl->extensions.len);
-+        SSL_ctrl(c->ssl->connection, SSL_CTRL_GET_TLSEXT_EXTENSIONS, 0, c->ssl->extensions.data);
++        c->ssl->extensions.data = ngx_pnalloc(c->pool, c->ssl->extensions.len*2);
++        SSL_client_hello_get_extension_order(c->ssl->connection, (uint16_t*)c->ssl->extensions.data, &c->ssl->extensions.len);
 +    }
 +
 +    return 1;
@@ -40,7 +41,7 @@ index 91b415ca..f76a19ff 100644
 +    ssl->ciphers.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &ssl->ciphers.data);
 +
 +    ssl->groups.data = NULL;
-+    ssl->groups.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_RAW_GROUPS, 0, &ssl->groups.data);
++    ssl->groups.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_IANA_GROUPS, 0, &ssl->groups.data);
 +
 +    ssl->points.data = NULL;
 +    ssl->points.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_EC_POINT_FORMATS, 0, &ssl->points.data);
@@ -50,7 +51,7 @@ index 91b415ca..f76a19ff 100644
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1603,8 +1644,12 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1603,8 +1645,12 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -77,5 +78,3 @@ index 61da0c5d..9651b3b5 100644
 +    ngx_str_t                   groups;
 +    ngx_str_t                   points;
  };
- 
- 
