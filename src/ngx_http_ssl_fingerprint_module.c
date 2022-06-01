@@ -55,7 +55,7 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
     v->len = 1;
     v->data = (u_char*)"0";
 
-    pdata = r->connection->ssl->ciphers.data;
+    pdata = r->connection->ssl->fp_ciphers.data;
     if (pdata != NULL) {
         n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
         if (IS_GREASE_CODE(n)) {

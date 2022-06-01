@@ -86,7 +86,7 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     }
 
 
-    n = 32 + c->ssl->ciphers.len * 6 + c->ssl->extensions.len * 6 + c->ssl->groups.len * 6 + c->ssl->points.len * 4;
+    n = 32 + c->ssl->fp_ciphers.len * 6 + c->ssl->fp_extensions.len * 6 + c->ssl->fp_groups.len * 6 + c->ssl->fp_points.len * 4;
     fingerprint->data = ngx_pnalloc(pool, n);
     pstr = fingerprint->data;
 
@@ -95,13 +95,13 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
 #endif
 
     /* version */
-    pstr = append_uint16(pstr, (unsigned short)SSL_version(ssl));
+    pstr = append_uint16(pstr, (unsigned short)SSL_client_version(ssl));
 
     /* ciphers */
-    if (c->ssl->ciphers.len) {
+    if (c->ssl->fp_ciphers.len) {
         *pstr++ = ',';
-        pdata = c->ssl->ciphers.data;
-        pend = pdata + c->ssl->ciphers.len;
+        pdata = c->ssl->fp_ciphers.data;
+        pend = pdata + c->ssl->fp_ciphers.len;
         while (pdata < pend) {
             n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
             if (!IS_GREASE_CODE(n)) {
@@ -114,9 +114,9 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     }
 
     /* extensions */
-    if (c->ssl->extensions.len) {
-        pdata = c->ssl->extensions.data;
-        pend = pdata + c->ssl->extensions.len;
+    if (c->ssl->fp_extensions.len) {
+        pdata = c->ssl->fp_extensions.data;
+        pend = pdata + c->ssl->fp_extensions.len*2;
         while (pdata < pend) {
             n = *(unsigned short*)pdata;
             if (!IS_GREASE_CODE(n)) {
@@ -129,9 +129,9 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     }
 
     /* curves */
-    if (c->ssl->groups.len) {
-        pdata = c->ssl->groups.data;
-        pend = pdata + c->ssl->groups.len*2;
+    if (c->ssl->fp_groups.len) {
+        pdata = c->ssl->fp_groups.data;
+        pend = pdata + c->ssl->fp_groups.len*2;
         while (pdata < pend) {
             n = *(unsigned short*)pdata;
             if (!IS_GREASE_CODE(n)) {
@@ -144,9 +144,9 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
     }
 
     /* formats */
-    if (c->ssl->points.len) {
-        pdata = c->ssl->points.data;
-        pend = pdata + c->ssl->points.len;
+    if (c->ssl->fp_points.len) {
+        pdata = c->ssl->fp_points.data;
+        pend = pdata + c->ssl->fp_points.len;
         while (pdata < pend) {
             pstr = append_uint8(pstr, *pdata);
             *pstr++ = '-';
