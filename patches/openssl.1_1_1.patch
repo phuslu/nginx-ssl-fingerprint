@@ -1,29 +1,31 @@
 diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
-index b744f6ccc1..540f8e3af9 100644
+index 6724ccf2d2..25f5db6e53 100644
 --- a/include/openssl/ssl.h
 +++ b/include/openssl/ssl.h
-@@ -1275,6 +1275,7 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
+@@ -1275,6 +1275,8 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
  # define SSL_CTRL_SET_SIGALGS                    97
  # define SSL_CTRL_SET_SIGALGS_LIST               98
  # define SSL_CTRL_CERT_FLAGS                     99
-+# define SSL_CTRL_GET_IANA_GROUPS                233
++# define SSL_CTRL_GET_TLSEXT_EXTENSIONS          233
++# define SSL_CTRL_GET_RAW_GROUPS                 234
  # define SSL_CTRL_CLEAR_CERT_FLAGS               100
  # define SSL_CTRL_SET_CLIENT_SIGALGS             101
  # define SSL_CTRL_SET_CLIENT_SIGALGS_LIST        102
-@@ -1818,6 +1819,8 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
- size_t SSL_client_hello_get0_compression_methods(SSL *s,
-                                                  const unsigned char **out);
- int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen);
-+int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts,
-+                                         size_t *num_exts);
- int SSL_client_hello_get0_ext(SSL *s, unsigned int type,
-                               const unsigned char **out, size_t *outlen);
- 
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 76d9fda46e..7389d4a4c3 100644
+index 76d9fda46e..30ad67cd80 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
-@@ -131,6 +131,11 @@ extern "C" {
+@@ -113,6 +113,9 @@ extern "C" {
+ /* ExtensionType value from RFC7301 */
+ # define TLSEXT_TYPE_application_layer_protocol_negotiation 16
+ 
++/* ExtensionType value from RFC6961 */
++# define TLSEXT_TYPE_status_request_v2  17
++
+ /*
+  * Extension type for Certificate Transparency
+  * https://tools.ietf.org/html/rfc6962#section-3.3.1
+@@ -131,6 +134,15 @@ extern "C" {
  /* ExtensionType value from RFC7627 */
  # define TLSEXT_TYPE_extended_master_secret      23
  
@@ -32,90 +34,81 @@ index 76d9fda46e..7389d4a4c3 100644
 +/* ExtensionType value from RFC8449 */
 +# define TLSEXT_TYPE_record_size_limit           28
 +
++/* Extension Type application_settings 17513 */
++// https://www.ietf.org/archive/id/draft-vvv-tls-alps-00.html
++# define TLSEXT_TYPE_application_settings     17513
++
  /* ExtensionType value from RFC4507 */
  # define TLSEXT_TYPE_session_ticket              35
  
 diff --git a/ssl/s3_lib.c b/ssl/s3_lib.c
-index 32f9b25710..75feddf460 100644
+index a987604bcd..943b8eac39 100644
 --- a/ssl/s3_lib.c
 +++ b/ssl/s3_lib.c
-@@ -3731,6 +3731,13 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
+@@ -3725,6 +3725,43 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
              return (int)s->ext.peer_ecpointformats_len;
          }
  #endif
-+    case SSL_CTRL_GET_IANA_GROUPS:
++    case SSL_CTRL_GET_TLSEXT_EXTENSIONS:
++        {
++            /* Extensions */
++            unsigned short *data = parg;
++            RAW_EXTENSION *ext;
++            size_t num = 0, i;
++
++            if (s->clienthello == NULL) {
++                return 0;
++            }
++
++            for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
++                ext = s->clienthello->pre_proc_exts + i;
++                if (ext->present)
++                    num++;
++            }
++
++            if (data != NULL) {
++                for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
++                    ext = s->clienthello->pre_proc_exts + i;
++                    if (ext->present) {
++                        if (ext->received_order >= num)
++                            break;
++                        data[ext->received_order] = (unsigned short)ext->type;
++                    }
++                }
++            }
++
++            return num*2;
++        }
++    case SSL_CTRL_GET_RAW_GROUPS:
 +        {
 +            if (parg) {
-+                *(uint16_t **)parg = (uint16_t *)s->ext.peer_supportedgroups;
++                *(unsigned char **)parg = s->ext.peer_supportedgroups;
 +            }
 +            return (int)s->ext.peer_supportedgroups_len;
 +        }
  
      default:
          break;
-diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 25a1a44785..699ef36d33 100644
---- a/ssl/ssl_lib.c
-+++ b/ssl/ssl_lib.c
-@@ -5205,6 +5205,40 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
-     return 0;
- }
- 
-+int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts, size_t *num_exts)
-+{
-+    RAW_EXTENSION *ext;
-+    size_t num = 0, i;
-+
-+    if (s->clienthello == NULL || num_exts == NULL)
-+        return 0;
-+    for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
-+        ext = s->clienthello->pre_proc_exts + i;
-+        if (ext->present)
-+            num++;
-+    }
-+    if (num == 0) {
-+        *num_exts = 0;
-+        return 1;
-+    }
-+    if (exts == NULL) {
-+        *num_exts = num;
-+        return 1;
-+    }
-+    if (*num_exts < num)
-+        return 0;
-+    for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
-+        ext = s->clienthello->pre_proc_exts + i;
-+        if (ext->present) {
-+            if (ext->received_order >= num)
-+                return 0;
-+            exts[ext->received_order] = ext->type;
-+        }
-+    }
-+    *num_exts = num;
-+    return 1;
-+}
-+
- int SSL_client_hello_get0_ext(SSL *s, unsigned int type, const unsigned char **out,
-                        size_t *outlen)
- {
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 4c36cd5c89..3526bfa474 100644
+index 8ddbde7729..c1e932d998 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
-@@ -714,6 +714,8 @@ typedef enum tlsext_index_en {
+@@ -715,6 +715,10 @@ typedef enum tlsext_index_en {
      TLSEXT_IDX_cryptopro_bug,
      TLSEXT_IDX_early_data,
      TLSEXT_IDX_certificate_authorities,
 +    TLSEXT_IDX_compress_certificate,
 +    TLSEXT_IDX_record_size_limit,
++    TLSEXT_IDX_application_settings,
++    TLSEXT_IDX_status_request_v2,
      TLSEXT_IDX_padding,
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 0f39275baa..8bca6e8e4e 100644
+index 4ef8b417b8..03ba44e6fe 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
-@@ -377,6 +377,22 @@ static const EXTENSION_DEFINITION ext_defs[] = {
+@@ -373,6 +373,38 @@ static const EXTENSION_DEFINITION ext_defs[] = {
          tls_construct_certificate_authorities,
          tls_construct_certificate_authorities, NULL,
      },
@@ -129,6 +122,22 @@ index 0f39275baa..8bca6e8e4e 100644
 +    },
 +    {
 +        TLSEXT_TYPE_record_size_limit,
++        SSL_EXT_CLIENT_HELLO,
++        NULL,
++        NULL, NULL,
++        NULL,
++        NULL, NULL,
++    },
++    {
++        TLSEXT_TYPE_application_settings,
++        SSL_EXT_CLIENT_HELLO,
++        NULL,
++        NULL, NULL,
++        NULL,
++        NULL, NULL,
++    },
++    {
++        TLSEXT_TYPE_status_request_v2,
 +        SSL_EXT_CLIENT_HELLO,
 +        NULL,
 +        NULL, NULL,
