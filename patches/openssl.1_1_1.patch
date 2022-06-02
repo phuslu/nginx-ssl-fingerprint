@@ -20,17 +20,21 @@ index b744f6ccc1..540f8e3af9 100644
                                const unsigned char **out, size_t *outlen);
  
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 76d9fda46e..7389d4a4c3 100644
+index 76d9fda46e..a29114f215 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
-@@ -131,6 +131,11 @@ extern "C" {
+@@ -131,6 +131,15 @@ extern "C" {
  /* ExtensionType value from RFC7627 */
  # define TLSEXT_TYPE_extended_master_secret      23
  
++/* ExtensionType value from RFC6961 */
++# define TLSEXT_TYPE_status_request_v2           17
 +/* [draft-ietf-tls-certificate-compression] */
 +# define TLSEXT_TYPE_compress_certificate        27
 +/* ExtensionType value from RFC8449 */
 +# define TLSEXT_TYPE_record_size_limit           28
++/* ExtensionType value from RFC7639 */
++# define TLSEXT_TYPE_application_settings        17513
 +
  /* ExtensionType value from RFC4507 */
  # define TLSEXT_TYPE_session_ticket              35
@@ -99,26 +103,36 @@ index 25a1a44785..699ef36d33 100644
                         size_t *outlen)
  {
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 4c36cd5c89..3526bfa474 100644
+index 4c36cd5c89..ac0ec97b65 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
-@@ -714,6 +714,8 @@ typedef enum tlsext_index_en {
+@@ -714,6 +714,10 @@ typedef enum tlsext_index_en {
      TLSEXT_IDX_cryptopro_bug,
      TLSEXT_IDX_early_data,
      TLSEXT_IDX_certificate_authorities,
++    TLSEXT_IDX_status_request_v2,
 +    TLSEXT_IDX_compress_certificate,
 +    TLSEXT_IDX_record_size_limit,
++    TLSEXT_IDX_application_settings,
      TLSEXT_IDX_padding,
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 0f39275baa..8bca6e8e4e 100644
+index 0f39275baa..7cb1e62287 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
-@@ -377,6 +377,22 @@ static const EXTENSION_DEFINITION ext_defs[] = {
+@@ -377,6 +377,38 @@ static const EXTENSION_DEFINITION ext_defs[] = {
          tls_construct_certificate_authorities,
          tls_construct_certificate_authorities, NULL,
      },
++    {
++        TLSEXT_TYPE_status_request_v2,
++        SSL_EXT_CLIENT_HELLO,
++        NULL,
++        NULL, NULL,
++        NULL,
++        NULL, NULL,
++    },
 +    {
 +        TLSEXT_TYPE_compress_certificate,
 +        SSL_EXT_CLIENT_HELLO,
@@ -129,6 +143,14 @@ index 0f39275baa..8bca6e8e4e 100644
 +    },
 +    {
 +        TLSEXT_TYPE_record_size_limit,
++        SSL_EXT_CLIENT_HELLO,
++        NULL,
++        NULL, NULL,
++        NULL,
++        NULL, NULL,
++    },
++    {
++        TLSEXT_TYPE_application_settings,
 +        SSL_EXT_CLIENT_HELLO,
 +        NULL,
 +        NULL, NULL,
