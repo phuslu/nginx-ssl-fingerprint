@@ -8,19 +8,19 @@
 static inline
 unsigned char *append_uint8(unsigned char* dst, unsigned char n)
 {
-    if (n > 99) {
+    if (n < 10) {
+        *dst = n + '0';
+        dst++;
+    } else if (n < 100) {
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 2;
+    } else {
         *(dst+2) = n % 10 + '0';
         n /= 10;
         *(dst+1) = n % 10 + '0';
         *dst = n / 10 + '0';
         dst += 3;
-    } else if (n > 9) {
-        *(dst+1) = n % 10 + '0';
-        *dst = n / 10 + '0';
-        dst += 2;
-    } else {
-        *dst = n + '0';
-        dst++;
     }
 
     return dst;
@@ -29,7 +29,28 @@ unsigned char *append_uint8(unsigned char* dst, unsigned char n)
 static inline
 unsigned char *append_uint16(unsigned char* dst, unsigned short n)
 {
-    if (n > 9999) {
+    if (n < 10) {
+        *dst = n + '0';
+        dst++;
+    } else if (n < 100) {
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 2;
+    } else if (n < 1000) {
+        *(dst+2) = n % 10 + '0';
+        n /= 10;
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 3;
+    }  else if (n < 10000) {
+        *(dst+3) = n % 10 + '0';
+        n /= 10;
+        *(dst+2) = n % 10 + '0';
+        n /= 10;
+        *(dst+1) = n % 10 + '0';
+        *dst = n / 10 + '0';
+        dst += 4;
+    } else {
         *(dst+4) = n % 10 + '0';
         n /= 10;
         *(dst+3) = n % 10 + '0';
@@ -39,27 +60,6 @@ unsigned char *append_uint16(unsigned char* dst, unsigned short n)
         *(dst+1) = n % 10 + '0';
         *dst = n / 10 + '0';
         dst += 5;
-    } else if (n > 999) {
-        *(dst+3) = n % 10 + '0';
-        n /= 10;
-        *(dst+2) = n % 10 + '0';
-        n /= 10;
-        *(dst+1) = n % 10 + '0';
-        *dst = n / 10 + '0';
-        dst += 4;
-    } else if (n > 99) {
-        *(dst+2) = n % 10 + '0';
-        n /= 10;
-        *(dst+1) = n % 10 + '0';
-        *dst = n / 10 + '0';
-        dst += 3;
-    } else if (n > 9) {
-        *(dst+1) = n % 10 + '0';
-        *dst = n / 10 + '0';
-        dst += 2;
-    } else {
-        *dst = n + '0';
-        dst++;
     }
 
     return dst;
