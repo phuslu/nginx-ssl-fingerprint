@@ -132,6 +132,31 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_http_http2_fingerprint(ngx_http_request_t *r,
+                 ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_str_t fingerprint = ngx_null_string;
+
+    if (r->stream == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_http2_fingerprint(r->connection, r->stream->connection, r->pool, &fingerprint) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    v->data = fingerprint.data;
+    v->len = fingerprint.len;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
 static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_greased"),
      NULL,
@@ -144,6 +169,10 @@ static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_ja3_hash"),
      NULL,
      ngx_http_ssl_fingerprint_hash,
+     0, 0, 0},
+    {ngx_string("http2_fingerprint"),
+     NULL,
+     ngx_http_http2_fingerprint,
      0, 0, 0},
 };
 

@@ -19,6 +19,7 @@ For more information, please see the [salesforce ja3](https://github.com/salesfo
 | http_ssl_greased  | 0             | Chrome grease flag                                          |
 | http_ssl_ja3      | NULL          | The ja3 fingerprint for a SSL connection for a HTTP server. |
 | http_ssl_ja3_hash | NULL          | ja3 md5 hash                                                |
+| http2_fingerprint | NULL          | akamai http2 fingerprint                                    |
 
 #### Example
 
@@ -71,7 +72,7 @@ $ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.patch
 # Configure & Build
 
 $ cd nginx
-$ ASAN_OPTIONS=symbolize=1 ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-cc-opt="-fsanitize=address -O -fno-omit-frame-pointer" --with-ld-opt="-L/usr/local/lib -Wl,-E -lasan"
+$ ASAN_OPTIONS=symbolize=1 ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-http_v2_module --with-cc-opt="-fsanitize=address -O -fno-omit-frame-pointer" --with-ld-opt="-L/usr/local/lib -Wl,-E -lasan"
 $ make
 
 # Test
