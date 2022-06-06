@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  nginx-ssl-fingerprint:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: 'nginx-ssl-fingerprint:latest'
+    command: sleep 3600
+    volumes:
+      - ./:/srv
+    ports:
+      - "8444:8444"
+    environment:
+      - env=dev
+    container_name: nginx-ssl-fingerprint
