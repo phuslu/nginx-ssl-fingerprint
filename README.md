@@ -38,7 +38,9 @@ http {
 
 Build as a common nginx module.
 
-### Build and run by docker. (Easy to build, but the compile cost too much time - about 7 minutes  every time)
+### a. Build and run by docker
+
+Easy to build, but the compile cost too much time - about 7 minutes  every time
 
 ```bash
 $ make docker
@@ -46,7 +48,12 @@ $ make docker
 $ curl -k https://127.0.0.1:8444
 ```
 
-### Or build step by step. (Cache the nginx compile objs, so it verfy fast than docker build)
+
+or ,
+
+### b. build manually step by step
+
+Cache the nginx compile objs, so it verfy fast than docker build.
 
 ```bash
 
