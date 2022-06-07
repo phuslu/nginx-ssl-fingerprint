@@ -7,7 +7,6 @@ services:
       context: .
       dockerfile: ./Dockerfile
     image: 'nginx-ssl-fingerprint:latest'
-    command: sleep 3600
     volumes:
       - ./:/srv
     ports:

@@ -17,5 +17,6 @@ RUN make patch && \
     mkdir logs
 
 EXPOSE 443
+EXPOSE 8444
 
 CMD ./nginx/objs/nginx -p /build -c nginx-ssl-fingerprint/conf/nginx.conf
