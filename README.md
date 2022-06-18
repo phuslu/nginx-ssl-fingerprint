@@ -5,10 +5,12 @@ A stable nginx module for SSL/TLS ja3 fingerprint, with high [performance](docs/
  - [nginx - save client hello extensions](patches/nginx.patch)
  - [openssl - expose client hello data](patches/openssl.1_1_1.patch)
 
-## Description
+## Documentation
 
-This module adds new nginx variables for the SSL/TLS ja3 fingerprint.
-For more information, please see the [salesforce ja3](https://github.com/salesforce/ja3)
+- [Client Hello Packet example](./docs/clien-hello.pcap)
+- [How does we gather TLS fingerprint?](./docs/tls-fingerprint.md)
+- [Higher Performance](./docs/performance.md)
+
 
 ## Configuration
 
