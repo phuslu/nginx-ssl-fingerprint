@@ -149,6 +149,8 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
             pdata += 2;
         }
         *(pstr-1) = ',';
+    } else {
+        *pstr++ = ',';
     }
 
     /* formats */
@@ -160,6 +162,9 @@ int ngx_ssl_fingerprint(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *finger
             *pstr++ = '-';
             pdata++;
         }
+    } else {
+        *pstr = ',';
+        pstr += 2;
     }
 
     /* null terminator */
