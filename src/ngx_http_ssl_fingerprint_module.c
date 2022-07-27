@@ -2,9 +2,6 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <ngx_log.h>
-#include <openssl/md5.h>
-
-#include "ngx_ssl_fingerprint.h"
 
 static ngx_int_t ngx_http_ssl_fingerprint_init(ngx_conf_t *cf);
 
@@ -38,9 +35,6 @@ static ngx_int_t
 ngx_http_ssl_greased(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    unsigned char *pdata = NULL;
-    unsigned short n;
-
     if (r->connection == NULL)
     {
         return NGX_OK;
@@ -53,15 +47,7 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
     }
 
     v->len = 1;
-    v->data = (u_char*)"0";
-
-    pdata = r->connection->ssl->fp_ciphers.data;
-    if (pdata != NULL) {
-        n = ((unsigned short)(*pdata)<<8) + *(pdata+1);
-        if (IS_GREASE_CODE(n)) {
-            v->data = (u_char*)"1";
-        }
-    }
+    v->data = (u_char*)(r->connection->ssl->fp_tls_greased ? "1" : "0");
 
     v->valid = 1;
     v->no_cacheable = 1;
@@ -74,20 +60,13 @@ static ngx_int_t
 ngx_http_ssl_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_str_t fingerprint = ngx_null_string;
-
     if (r->connection == NULL)
     {
         return NGX_OK;
     }
 
-    if (ngx_ssl_fingerprint(r->connection, r->pool, &fingerprint) == NGX_DECLINED)
-    {
-        return NGX_ERROR;
-    }
-
-    v->data = fingerprint.data;
-    v->len = fingerprint.len;
+    v->data = r->connection->ssl->fp_ja3_str.data;
+    v->len = r->connection->ssl->fp_ja3_str.len;
     v->valid = 1;
     v->no_cacheable = 1;
     v->not_found = 0;
@@ -99,32 +78,13 @@ static ngx_int_t
 ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_str_t fingerprint = ngx_null_string;
-    MD5_CTX ctx;
-    u_char hash[16] = {0};
-
     if (r->connection == NULL)
     {
         return NGX_OK;
     }
 
-    v->data = ngx_pcalloc(r->pool, 32);
-
-    if (v->data == NULL) {
-        return NGX_ERROR;
-    }
-
-    if (ngx_ssl_fingerprint(r->connection, r->pool, &fingerprint) == NGX_DECLINED)
-    {
-        return NGX_ERROR;
-    }
-
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, fingerprint.data, fingerprint.len);
-    MD5_Final(hash, &ctx);
-    ngx_hex_dump(v->data, hash, 16);
-
-    v->len = 32;
+    v->data = r->connection->ssl->fp_ja3_md5.data;
+    v->len = r->connection->ssl->fp_ja3_md5.len;
     v->valid = 1;
     v->no_cacheable = 1;
     v->not_found = 0;

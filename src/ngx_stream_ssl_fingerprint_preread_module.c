@@ -3,8 +3,6 @@
 #include <ngx_stream.h>
 #include <ngx_md5.h>
 
-#include "ngx_ssl_fingerprint.h"
-
 static ngx_int_t ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf);
 
 static ngx_stream_module_t  ngx_stream_ssl_fingerprint_preread_module_ctx = {

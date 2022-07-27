@@ -1,13 +1,21 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 91b415ca..f876e9c9 100644
+index 91b415ca..8002f8fa 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
-@@ -1588,6 +1588,48 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -8,6 +8,7 @@
+ #include <ngx_config.h>
+ #include <ngx_core.h>
+ #include <ngx_event.h>
++#include <openssl/md5.h>
+ 
+ 
+ #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
+@@ -1588,6 +1589,54 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
 +int
-+ngx_ssl_client_hello_cb(SSL *s, int *al, void *arg) {
++ngx_ssl_client_hello_ja3_cb(SSL *s, int *al, void *arg) {
 +    ngx_connection_t  *c = arg;
 +
 +    if (c == NULL) {
@@ -18,63 +26,74 @@ index 91b415ca..f876e9c9 100644
 +        return 1;
 +    }
 +
-+    c->ssl->fp_extensions.data = NULL;
-+    c->ssl->fp_extensions.len = 0;
-+    SSL_client_hello_get_extension_order(c->ssl->connection, NULL, &c->ssl->fp_extensions.len);
-+    if (c->ssl->fp_extensions.len) {
-+        c->ssl->fp_extensions.data = ngx_pnalloc(c->pool, c->ssl->fp_extensions.len*2);
-+        SSL_client_hello_get_extension_order(c->ssl->connection, (uint16_t*)c->ssl->fp_extensions.data, &c->ssl->fp_extensions.len);
-+    }
++    c->ssl->fp_tls_greased = 0;
++    c->ssl->fp_ja3_str.len = SSL_client_hello_get_ja3_str(c->ssl->connection, NULL, NULL);
++
++    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_cb: alloc %d bytes", c->ssl->fp_ja3_str.len);
++
++    c->ssl->fp_ja3_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_str.len);
++    c->ssl->fp_ja3_str.len = SSL_client_hello_get_ja3_str(c->ssl->connection, c->ssl->fp_ja3_str.data, &c->ssl->fp_tls_greased);
++
++    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_cb: used %d bytes", c->ssl->fp_ja3_str.len);
 +
 +    return 1;
 +}
 +
 +void
-+ngx_ssl_client_hello_ext(ngx_connection_t *c) {
-+    ngx_ssl_connection_t *ssl = c->ssl;
++ngx_ssl_client_hello_ja3_md5(ngx_connection_t *c) {
++    MD5_CTX ctx;
++    u_char hash[16] = {0};
 +
-+    if (ssl == NULL) {
++    if (c == NULL) {
 +        return;
 +    }
 +
-+    ssl->fp_ciphers.data = NULL;
-+    ssl->fp_ciphers.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_RAW_CIPHERLIST, 0, &ssl->fp_ciphers.data);
++    if (c->ssl == NULL) {
++        return;
++    }
 +
-+    ssl->fp_groups.data = NULL;
-+    ssl->fp_groups.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_IANA_GROUPS, 0, &ssl->fp_groups.data);
++    c->ssl->fp_ja3_md5.len = 32;
++    c->ssl->fp_ja3_md5.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_md5.len);
 +
-+    ssl->fp_points.data = NULL;
-+    ssl->fp_points.len = SSL_ctrl(ssl->connection, SSL_CTRL_GET_EC_POINT_FORMATS, 0, &ssl->fp_points.data);
++    MD5_Init(&ctx);
++    MD5_Update(&ctx, c->ssl->fp_ja3_str.data, c->ssl->fp_ja3_str.len);
++    MD5_Final(hash, &ctx);
++    ngx_hex_dump(c->ssl->fp_ja3_md5.data, hash, 16);
 +
 +    return;
 +}
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1603,8 +1645,12 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1603,10 +1652,16 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
-+    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_ssl_client_hello_cb, c);
++    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_ssl_client_hello_ja3_cb, c);
 +
      n = SSL_do_handshake(c->ssl->connection);
  
-+    ngx_ssl_client_hello_ext(c);
++    ngx_ssl_client_hello_ja3_md5(c);
 +
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
  
++    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_client_hello_get_ja3_str: [%V]", &c->ssl->fp_ja3_str);
++
      if (n == 1) {
+ 
+         if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 61da0c5d..1317c416 100644
+index 61da0c5d..d05a65b4 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -99,6 +99,11 @@ struct ngx_ssl_connection_s {
+@@ -99,6 +99,10 @@ struct ngx_ssl_connection_s {
      unsigned                    in_early:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
-+    ngx_str_t                   fp_ciphers;
-+    ngx_str_t                   fp_extensions;
-+    ngx_str_t                   fp_groups;
-+    ngx_str_t                   fp_points;
++    uint16_t                    fp_tls_greased;
++    ngx_str_t                   fp_ja3_str;
++    ngx_str_t                   fp_ja3_md5;
  };
+ 
+ 
