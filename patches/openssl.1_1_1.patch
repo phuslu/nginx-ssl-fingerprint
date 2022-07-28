@@ -31,10 +31,10 @@ index 76d9fda46e..a29114f215 100644
  # define TLSEXT_TYPE_session_ticket              35
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 25a1a44785..3bc3faee41 100644
+index 25a1a44785..0c623dd495 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -5205,6 +5205,134 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -5205,6 +5205,142 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -145,23 +145,31 @@ index 25a1a44785..3bc3faee41 100644
 +    *(ptr-1) = ',';
 +
 +    /* groups */
-+    num = ((size_t)groups[0]) << 8 | ((size_t)groups[1]);
-+    for (i = 2; i <= num; i+=2) {
-+        n = ((uint16_t)groups[i]) << 8 | ((uint16_t)groups[i+1]);
-+        if (!IS_GREASE_CODE(n)) {
-+            ptr = append_uint16(ptr, n);
-+            *ptr++ = '-';
++    if (groups) {
++        num = ((size_t)groups[0]) << 8 | ((size_t)groups[1]);
++        for (i = 2; i <= num; i+=2) {
++            n = ((uint16_t)groups[i]) << 8 | ((uint16_t)groups[i+1]);
++            if (!IS_GREASE_CODE(n)) {
++                ptr = append_uint16(ptr, n);
++                *ptr++ = '-';
++            }
 +        }
++        *(ptr-1) = ',';
++    } else {
++        *ptr++ = ',';
 +    }
-+    *(ptr-1) = ',';
 +
 +    /* formats */
-+    num = (size_t)formats[0];
-+    for (i = 1; i <= num; i++) {
-+        ptr = append_uint16(ptr, (uint16_t)formats[i]);
-+        *ptr++ = '-';
++    if (formats) {
++        num = (size_t)formats[0];
++        for (i = 1; i <= num; i++) {
++            ptr = append_uint16(ptr, (uint16_t)formats[i]);
++            *ptr++ = '-';
++        }
++        *ptr-- = 0;
++    } else {
++        *ptr = ',';
 +    }
-+    *ptr-- = 0;
 +
 +    return ptr - str;
 +}
