@@ -10,7 +10,6 @@ WORKDIR /build
 
 RUN git clone -b OpenSSL_1_1_1-stable --depth=1 https://github.com/openssl/openssl && \
     git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx && \
-    openssl ecparam -genkey -name prime256v1 | tee ./nginx-ssl-fingerprint/cert.pem | openssl req -x509 -nodes -key /dev/stdin -days 366 -subj '/C=US/OU=Web/CN=example.org' | tee -a ./nginx-ssl-fingerprint/cert.pem && \
     mkdir -p logs
 
 RUN patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.1_1_1.patch && \

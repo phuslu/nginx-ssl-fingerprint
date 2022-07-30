@@ -58,8 +58,7 @@ $ make
 
 # Test
 
-$ openssl ecparam -genkey -name prime256v1 | tee ../nginx-ssl-fingerprint/cert.pem | openssl req -x509 -nodes -key /dev/stdin -days 366 -subj '/C=US/OU=Web/CN=example.org' | tee -a ../nginx-ssl-fingerprint/cert.pem
-$ sudo objs/nginx -c $(pwd)/../nginx-ssl-fingerprint/nginx.conf
+$ objs/nginx -p . -c $(pwd)/../nginx-ssl-fingerprint/nginx.conf
 $ curl -k https://127.0.0.1:8444
 ```
 
