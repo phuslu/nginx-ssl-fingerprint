@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e..44f05e6 100644
+index 7b0417e..d64bc5d 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -8,6 +8,7 @@
@@ -139,8 +139,8 @@ index 7b0417e..44f05e6 100644
 +    data += 2 + num;
 +
 +    /* groups */
-+    num = ((uint16_t)data[0]) << 8 | ((uint16_t)data[1]);
-+    for (i = 2; i <= num; i += 2) {
++    num = *(uint16_t*)data;
++    for (i = 2; i < num; i += 2) {
 +        n = ((uint16_t)data[i]) << 8 | ((uint16_t)data[i+1]);
 +        if (!IS_GREASE_CODE(n)) {
 +            ptr = append_uint16(ptr, n);
@@ -148,16 +148,16 @@ index 7b0417e..44f05e6 100644
 +        }
 +    }
 +    *(ptr-1) = ',';
-+    data += 2 + num;
++    data += num;
 +
 +    /* formats */
 +    num = *(uint8_t*)data;
-+    for (i = 1; i <= num; i++) {
++    for (i = 1; i < num; i++) {
 +        ptr = append_uint16(ptr, (uint16_t)data[i]);
 +        *ptr++ = '-';
 +    }
 +    *(ptr-1) = ',';
-+    data += 1 + num;
++    data += num;
 +
 +    /* end */
 +    *ptr-- = 0;
