@@ -42,7 +42,7 @@ http {
 # Clone
 
 $ git clone -b OpenSSL_1_1_1-stable --depth=1 https://github.com/openssl/openssl
-$ git clone -b branches/stable-1.18 --depth=1 https://github.com/nginx/nginx
+$ git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx
 $ git clone https://github.com/phuslu/nginx-ssl-fingerprint
 
 # Patch

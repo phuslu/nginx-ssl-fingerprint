@@ -9,7 +9,7 @@ ADD . /build/nginx-ssl-fingerprint/
 WORKDIR /build
 
 RUN git clone -b OpenSSL_1_1_1-stable --depth=1 https://github.com/openssl/openssl && \
-    git clone -b branches/stable-1.18 --depth=1 https://github.com/nginx/nginx && \
+    git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx && \
     openssl ecparam -genkey -name prime256v1 | tee ./nginx-ssl-fingerprint/cert.pem | openssl req -x509 -nodes -key /dev/stdin -days 366 -subj '/C=US/OU=Web/CN=example.org' | tee -a ./nginx-ssl-fingerprint/cert.pem && \
     mkdir -p logs
 
