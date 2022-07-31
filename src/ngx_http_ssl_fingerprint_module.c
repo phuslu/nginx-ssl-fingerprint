@@ -40,7 +40,6 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-
     if (r->connection->ssl == NULL)
     {
         return NGX_OK;
@@ -65,6 +64,11 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
         return NGX_OK;
     }
 
+    if (r->connection->ssl == NULL)
+    {
+        return NGX_OK;
+    }
+
     v->data = r->connection->ssl->fp_ja3_str.data;
     v->len = r->connection->ssl->fp_ja3_str.len;
     v->valid = 1;
@@ -79,6 +83,11 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
     if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (r->connection->ssl == NULL)
     {
         return NGX_OK;
     }
