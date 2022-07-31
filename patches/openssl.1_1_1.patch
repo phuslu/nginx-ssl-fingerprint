@@ -53,9 +53,9 @@ index 25a1a44785..57d26e860e 100644
 +        for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
 +            ext = s->clienthello->pre_proc_exts + i;
 +            if (ext->present) {
-+                if (ext->type== 10)
++                if (ext->type== TLSEXT_TYPE_supported_groups)
 +                    groups = &ext->data;
-+                if (ext->type== 11)
++                if (ext->type== TLSEXT_TYPE_ec_point_formats)
 +                    formats = &ext->data;
 +                num += 2;
 +            }
@@ -94,9 +94,9 @@ index 25a1a44785..57d26e860e 100644
 +        if (ext->present) {
 +            if (ext->received_order >= num)
 +                break;
-+            if (ext->type== 10)
++            if (ext->type== TLSEXT_TYPE_supported_groups)
 +                groups = &ext->data;
-+            if (ext->type== 11)
++            if (ext->type== TLSEXT_TYPE_ec_point_formats)
 +                formats = &ext->data;
 +            ((uint16_t*)(ptr))[ext->received_order] = (uint16_t)ext->type;
 +        }
