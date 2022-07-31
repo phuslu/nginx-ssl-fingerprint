@@ -9,8 +9,7 @@ ADD . /build/nginx-ssl-fingerprint/
 WORKDIR /build
 
 RUN git clone -b OpenSSL_1_1_1-stable --depth=1 https://github.com/openssl/openssl && \
-    git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx && \
-    mkdir -p logs
+    git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx
 
 RUN patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.1_1_1.patch && \
     patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.patch && \
