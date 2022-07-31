@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e..d64bc5d 100644
+index 7b0417e..5cb9d64 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -8,6 +8,7 @@
@@ -189,7 +189,7 @@ index 7b0417e..d64bc5d 100644
 +
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
  
-+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_client_hello_get_ja3_data: [%V]", &c->ssl->fp_ja3_str);
++    ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_fp: str=[%V], length=[%d], md5=[%V]", &c->ssl->fp_ja3_str, c->ssl->fp_ja3_str.len, &c->ssl->fp_ja3_md5);
 +
      if (n == 1) {
  
