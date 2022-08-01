@@ -1,15 +1,20 @@
-FROM ubuntu:latest
+FROM ubuntu:22.10 AS nginx-stage
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
 	apt-get install -y git make gcc curl zlib1g-dev libpcre3-dev
 
-ADD . /build/nginx-ssl-fingerprint/
+ARG OPENSSL_VERSION=OpenSSL_1_1_1-stable
+ARG NGINX_VERSION=release-1.23.1
 
 WORKDIR /build
 
-RUN git clone -b OpenSSL_1_1_1-stable --depth=1 https://github.com/openssl/openssl && \
-    git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx
+RUN git clone -b ${OPENSSL_VERSION} --depth=1 https://github.com/openssl/openssl && \
+    git clone -b ${NGINX_VERSION} --depth=1 https://github.com/nginx/nginx
+
+ADD patches/ /build/nginx-ssl-fingerprint/patches/
+ADD src/ /build/nginx-ssl-fingerprint/src/
+ADD config nginx.conf /build/nginx-ssl-fingerprint/
 
 RUN patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.1_1_1.patch && \
     patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.patch && \
@@ -20,3 +25,24 @@ RUN patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.1_1_1.patch && 
 EXPOSE 8444
 
 CMD ./nginx/objs/nginx -p /build -c nginx-ssl-fingerprint/nginx.conf
+
+FROM nginx-stage AS tlsfuzzer-stage
+
+RUN export DEBIAN_FRONTEND=noninteractive && \
+	apt-get update && \
+	apt-get install -y git make python3-pip python3 nginx
+    
+RUN git clone -b master --depth=1 https://github.com/tlsfuzzer/tlsfuzzer /build/tlsfuzzer
+
+RUN pip install --no-cache-dir -r /build/tlsfuzzer/requirements.txt && \
+    pip install --no-cache-dir -r /build/tlsfuzzer/requirements-timing.txt
+  
+ENV PYTHONPATH=/build/tlsfuzzer
+COPY ./tlsfuzzer /build/nginx-ssl-fingerprint/tlsfuzzer/
+
+RUN mkdir -p /build/run/logs
+
+WORKDIR /build/tlsfuzzer
+
+CMD python3 /build/tlsfuzzer/tests/scripts_retention.py /build/nginx-ssl-fingerprint/tlsfuzzer/test.json /build/nginx/objs/nginx  0
+
