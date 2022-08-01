@@ -3,9 +3,9 @@
     "server_command": [
       "{command}",
       "-p",
-      "/build/run",
+      "/build/nginx-ssl-fingerprint/docker/tlsfuzzer/run",
       "-c",
-      "/build/nginx-ssl-fingerprint/tlsfuzzer/nginx.conf"
+      "/build/nginx-ssl-fingerprint/docker/tlsfuzzer/nginx.conf"
     ],
     "server_hostname": "localhost",
     "server_port": 8444,
@@ -22,10 +22,8 @@
     ],
     "tests": [
       {
-        "name": "test-client-hello-max-size.py"
-      },
-      {
-        "name": "test-zero-length-data.py"
+        "name": "test-large-hello.py",
+        "arguments": ["-n", "50"]
       }
     ]
   }

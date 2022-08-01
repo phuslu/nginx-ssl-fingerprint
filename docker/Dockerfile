@@ -38,11 +38,9 @@ RUN pip install --no-cache-dir -r /build/tlsfuzzer/requirements.txt && \
     pip install --no-cache-dir -r /build/tlsfuzzer/requirements-timing.txt
   
 ENV PYTHONPATH=/build/tlsfuzzer
-COPY ./tlsfuzzer /build/nginx-ssl-fingerprint/tlsfuzzer/
+COPY ./docker/tlsfuzzer /build/nginx-ssl-fingerprint/docker/tlsfuzzer/
 
 RUN mkdir -p /build/run/logs
 
-WORKDIR /build/tlsfuzzer
-
-CMD python3 /build/tlsfuzzer/tests/scripts_retention.py /build/nginx-ssl-fingerprint/tlsfuzzer/test.json /build/nginx/objs/nginx  0
+CMD /build/nginx-ssl-fingerprint/docker/tlsfuzzer/run-test.sh
 
