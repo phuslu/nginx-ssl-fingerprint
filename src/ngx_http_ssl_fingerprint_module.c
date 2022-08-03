@@ -68,6 +68,10 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
     {
         return NGX_OK;
     }
+    
+    if (r->connection->ssl->fp_ja3_str.data == NULL) {
+        return NGX_OK;
+    }
 
     v->data = r->connection->ssl->fp_ja3_str.data;
     v->len = r->connection->ssl->fp_ja3_str.len;
@@ -89,6 +93,10 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
 
     if (r->connection->ssl == NULL)
     {
+        return NGX_OK;
+    }
+    
+    if (r->connection->ssl->fp_ja3_md5.data == NULL) {
         return NGX_OK;
     }
 
