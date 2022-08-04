@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e4..ff16cfc8 100644
+index 7b0417e4..b0deb6ab 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -8,6 +8,7 @@
@@ -10,7 +10,7 @@ index 7b0417e4..ff16cfc8 100644
  
  
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
-@@ -1710,6 +1711,166 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1710,6 +1711,170 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -79,7 +79,7 @@ index 7b0417e4..ff16cfc8 100644
 +
 +#define IS_GREASE_CODE(code) (((code)&0x0f0f) == 0x0a0a && ((code)&0xff) == ((code)>>8))
 +
-+void
++int
 +ngx_ssl_client_hello_ja3_fp(ngx_connection_t *c) {
 +    u_char *ptr = NULL, *data = NULL;
 +    size_t num = 0, i;
@@ -88,13 +88,17 @@ index 7b0417e4..ff16cfc8 100644
 +    u_char hash[16] = {0};
 +
 +    if (c == NULL) {
-+        return;
++        return 0;
 +    }
 +
 +    if (c->ssl == NULL) {
-+        return;
++        return 0;
 +    }
 +
++    if (c->ssl->fp_ja3_data.data == NULL) {
++        return 0;
++    }
++    
 +    c->ssl->fp_ja3_str.len = c->ssl->fp_ja3_data.len * 3;
 +    c->ssl->fp_ja3_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_str.len);
 +    c->ssl->fp_ja3_md5.len = 32;
@@ -172,12 +176,12 @@ index 7b0417e4..ff16cfc8 100644
 +    /* greased */
 +    c->ssl->fp_tls_greased = greased;
 +
-+    return;
++    return 1;
 +}
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1730,12 +1891,18 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1730,12 +1895,19 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -185,14 +189,16 @@ index 7b0417e4..ff16cfc8 100644
 +
      n = SSL_do_handshake(c->ssl->connection);
  
--    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
- 
-+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+-
 +    
      if (n == 1) {
-+        ngx_ssl_client_hello_ja3_fp(c);
- 
-+        ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_fp: str=[%V], length=[%d], md5=[%V]", &c->ssl->fp_ja3_str, c->ssl->fp_ja3_str.len, &c->ssl->fp_ja3_md5);
+-
++        if (ngx_ssl_client_hello_ja3_fp(c) == 1) {
++            ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_fp: str=[%V], length=[%d], md5=[%V]", &c->ssl->fp_ja3_str, c->ssl->fp_ja3_str.len, &c->ssl->fp_ja3_md5);
++        } else {
++            ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_fp: return nothing");
++        }
 +        
          if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
              return NGX_ERROR;
