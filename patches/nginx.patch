@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e4..ff16cfc8 100644
+index 91b415ca..fbce04af 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -8,6 +8,7 @@
@@ -10,7 +10,7 @@ index 7b0417e4..ff16cfc8 100644
  
  
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
-@@ -1710,6 +1711,166 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1588,6 +1589,176 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -147,8 +147,13 @@ index 7b0417e4..ff16cfc8 100644
 +            *ptr++ = '-';
 +        }
 +    }
-+    *(ptr-1) = ',';
-+    data += num;
++
++    if (num != 0) {
++        *(ptr-1) = ',';
++        data += num;
++    } else {
++        *(ptr) = ',';
++    }
 +
 +    /* formats */
 +    num = *(uint8_t*)data;
@@ -156,8 +161,13 @@ index 7b0417e4..ff16cfc8 100644
 +        ptr = append_uint16(ptr, (uint16_t)data[i]);
 +        *ptr++ = '-';
 +    }
-+    *(ptr-1) = ',';
-+    data += num;
++
++    if (num != 0) {
++        *(ptr-1) = ',';
++        data += num;
++    } else {
++        *(ptr) = ',';
++    }
 +
 +    /* end */
 +    *ptr-- = 0;
@@ -177,7 +187,7 @@ index 7b0417e4..ff16cfc8 100644
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1730,12 +1891,18 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1603,12 +1774,18 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -198,11 +208,11 @@ index 7b0417e4..ff16cfc8 100644
              return NGX_ERROR;
          }
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index c9e86d9c..d037b956 100644
+index 61da0c5d..1c6d99f4 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -119,6 +119,11 @@ struct ngx_ssl_connection_s {
-     unsigned                    in_ocsp:1;
+@@ -99,6 +99,11 @@ struct ngx_ssl_connection_s {
+     unsigned                    in_early:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
