@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e4..ff16cfc8 100644
+index 91b415ca..0f4db7fd 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -8,6 +8,7 @@
@@ -10,7 +10,7 @@ index 7b0417e4..ff16cfc8 100644
  
  
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
-@@ -1710,6 +1711,166 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1588,6 +1589,179 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -135,8 +135,13 @@ index 7b0417e4..ff16cfc8 100644
 +            *ptr++ = '-';
 +        }
 +    }
-+    *(ptr-1) = ',';
-+    data += 2 + num;
++    if (num != 0) {
++        *(ptr-1) = ',';
++        data += 2 + num;
++    } else {
++        *(ptr) = ',';
++    }
++
 +
 +    /* groups */
 +    num = *(uint16_t*)data;
@@ -147,8 +152,12 @@ index 7b0417e4..ff16cfc8 100644
 +            *ptr++ = '-';
 +        }
 +    }
-+    *(ptr-1) = ',';
-+    data += num;
++    if (num != 0) {
++        *(ptr-1) = ',';
++        data += num;
++    } else {
++        *(ptr++) = ',';
++    }
 +
 +    /* formats */
 +    num = *(uint8_t*)data;
@@ -156,11 +165,15 @@ index 7b0417e4..ff16cfc8 100644
 +        ptr = append_uint16(ptr, (uint16_t)data[i]);
 +        *ptr++ = '-';
 +    }
-+    *(ptr-1) = ',';
-+    data += num;
++    if (num != 0) {
++        data += num;
++        *(ptr-1) = ',';
++        *ptr-- = 0;
++    } else {
++        *(ptr++) = ',';
++    }
 +
 +    /* end */
-+    *ptr-- = 0;
 +    c->ssl->fp_ja3_str.len = ptr - c->ssl->fp_ja3_str.data;
 +
 +    /* md5 */
@@ -177,7 +190,7 @@ index 7b0417e4..ff16cfc8 100644
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1730,12 +1891,18 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1603,11 +1777,16 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -185,23 +198,20 @@ index 7b0417e4..ff16cfc8 100644
 +
      n = SSL_do_handshake(c->ssl->connection);
  
--    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
  
-+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
-+    
      if (n == 1) {
 +        ngx_ssl_client_hello_ja3_fp(c);
- 
++
 +        ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_fp: str=[%V], length=[%d], md5=[%V]", &c->ssl->fp_ja3_str, c->ssl->fp_ja3_str.len, &c->ssl->fp_ja3_md5);
-+        
+ 
          if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
              return NGX_ERROR;
-         }
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index c9e86d9c..d037b956 100644
+index 61da0c5d..1c6d99f4 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -119,6 +119,11 @@ struct ngx_ssl_connection_s {
+@@ -99,6 +99,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_ocsp:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
