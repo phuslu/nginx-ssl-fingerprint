@@ -4,8 +4,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
 	apt-get install -y git make gcc curl zlib1g-dev libpcre3-dev
 
-ARG OPENSSL_VERSION=OpenSSL_1_1_1-stable
-ARG NGINX_VERSION=release-1.23.1
+ARG OPENSSL_VERSION
+ARG NGINX_VERSION
 
 WORKDIR /build
 
@@ -43,4 +43,31 @@ COPY ./docker/tlsfuzzer /build/nginx-ssl-fingerprint/docker/tlsfuzzer/
 RUN mkdir -p /build/run/logs
 
 CMD /build/nginx-ssl-fingerprint/docker/tlsfuzzer/run-test.sh
+
+FROM nginx-stage AS tests-stage
+
+RUN curl https://go.dev/dl/go1.19.linux-amd64.tar.gz -L -o /tmp/go.tar.gz && \
+    tar -C /usr/local -xzf /tmp/go.tar.gz && rm -rf /tmp/go.tar.gz 
+    
+RUN export DEBIAN_FRONTEND=noninteractive && \
+	apt-get update && \
+	apt-get install -y netcat-openbsd
+
+ENV PATH=/usr/local/go/bin:$PATH
+
+RUN mkdir -p /build/nginx-ssl-fingerprint/docker/tests/
+WORKDIR /build/nginx-ssl-fingerprint/docker/tests/
+
+COPY ./docker/tests/go.mod ./docker/tests/go.sum /build/nginx-ssl-fingerprint/docker/tests/
+
+RUN go mod download
+
+COPY ./docker/tests /build/nginx-ssl-fingerprint/docker/tests/
+
+RUN cp /build/nginx-ssl-fingerprint/docker/tests/cert.pem /usr/local/share/ca-certificates/cert.crt && \
+    update-ca-certificates
+
+RUN mkdir -p /build/run/logs
+
+CMD /build/nginx-ssl-fingerprint/docker/tests/run-test.sh
 

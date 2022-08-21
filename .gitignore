@@ -1,3 +1,6 @@
 
 docker/tlsfuzzer/run/logs
 !docker/tlsfuzzer/run/logs/.gitkeep
+
+docker/tests/run/logs
+!docker/tests/run/logs/.gitkeep
