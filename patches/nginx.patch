@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 91b415ca..bb8b1db5 100644
+index 7b0417e..6cf77aa 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -8,6 +8,7 @@
@@ -10,7 +10,7 @@ index 91b415ca..bb8b1db5 100644
  
  
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
-@@ -1588,6 +1589,177 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1710,6 +1711,180 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -102,6 +102,9 @@ index 91b415ca..bb8b1db5 100644
 +
 +    /* start */
 +    data = c->ssl->fp_ja3_data.data;
++    if (!data) {
++        return;
++    }
 +
 +    /* version */
 +    ptr = c->ssl->fp_ja3_str.data;
@@ -188,7 +191,7 @@ index 91b415ca..bb8b1db5 100644
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1603,11 +1775,16 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1730,11 +1905,16 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -206,10 +209,10 @@ index 91b415ca..bb8b1db5 100644
          if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
              return NGX_ERROR;
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 61da0c5d..1c6d99f4 100644
+index c9e86d9..d037b95 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -99,6 +99,11 @@ struct ngx_ssl_connection_s {
+@@ -119,6 +119,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_ocsp:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
