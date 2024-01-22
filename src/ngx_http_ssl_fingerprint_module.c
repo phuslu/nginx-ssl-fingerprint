@@ -68,40 +68,13 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
     {
         return NGX_OK;
     }
-    
+
     if (r->connection->ssl->fp_ja3_str.data == NULL) {
         return NGX_OK;
     }
 
     v->data = r->connection->ssl->fp_ja3_str.data;
     v->len = r->connection->ssl->fp_ja3_str.len;
-    v->valid = 1;
-    v->no_cacheable = 1;
-    v->not_found = 0;
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
-                 ngx_http_variable_value_t *v, uintptr_t data)
-{
-    if (r->connection == NULL)
-    {
-        return NGX_OK;
-    }
-
-    if (r->connection->ssl == NULL)
-    {
-        return NGX_OK;
-    }
-    
-    if (r->connection->ssl->fp_ja3_md5.data == NULL) {
-        return NGX_OK;
-    }
-
-    v->data = r->connection->ssl->fp_ja3_md5.data;
-    v->len = r->connection->ssl->fp_ja3_md5.len;
     v->valid = 1;
     v->no_cacheable = 1;
     v->not_found = 0;
@@ -117,10 +90,6 @@ static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_ja3"),
      NULL,
      ngx_http_ssl_fingerprint,
-     0, 0, 0},
-    {ngx_string("http_ssl_ja3_hash"),
-     NULL,
-     ngx_http_ssl_fingerprint_hash,
      0, 0, 0},
 };
 

@@ -14,7 +14,6 @@ A stable nginx module for SSL/TLS ja3 fingerprint, with high [performance](#perf
 | ----------------- | ------------- | ----------------------------------------------------------- |
 | http_ssl_greased  | 0             | Chrome grease flag                                          |
 | http_ssl_ja3      | NULL          | The ja3 fingerprint for a SSL connection for a HTTP server. |
-| http_ssl_ja3_hash | NULL          | ja3 md5 hash                                                |
 
 #### Example
 
