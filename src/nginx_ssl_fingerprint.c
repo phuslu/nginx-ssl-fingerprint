@@ -292,7 +292,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     return NGX_OK;
 }
 
-int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c, ngx_pool_t *pool, ngx_str_t *fingerprint)
+int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
 {
     unsigned char *pstr = NULL;
     unsigned short n = 0;
@@ -302,9 +302,13 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c, ng
         return NGX_DECLINED;
     }
 
+    if (h2c->fp_str.len > 0) {
+        return NGX_OK;
+    }
+
     n = 4 + h2c->fp_settings.len * 3 + 10 + h2c->fp_priorities.len * 2 + h2c->fp_pseudoheaders.len * 2;
-    fingerprint->data = ngx_pnalloc(pool, n);
-    pstr = fingerprint->data;
+    h2c->fp_str.data = ngx_pnalloc(c->pool, n);
+    pstr = h2c->fp_str.data;
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_http2_fingerprint: alloc bytes: [%d]\n", n);
 
@@ -343,11 +347,11 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c, ng
     /* null terminator */
     *--pstr = 0;
 
-    fingerprint->len = pstr - fingerprint->data;
+    h2c->fp_str.len = pstr - h2c->fp_str.data;
 
     h2c->fp_fingerprinted = 1;
 
-    ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_http2_fingerprint: http2 fingerprint: [%V]\n", fingerprint);
+    ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_http2_fingerprint: http2 fingerprint: [%V], len=[%d]\n", &h2c->fp_str, h2c->fp_str.len);
 
     return NGX_OK;
 }

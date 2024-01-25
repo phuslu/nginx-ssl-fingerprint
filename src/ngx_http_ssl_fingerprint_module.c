@@ -4,7 +4,7 @@
 #include <ngx_log.h>
 
 extern int ngx_ssl_ja3(ngx_connection_t *c);
-extern int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c, ngx_pool_t *pool, ngx_str_t *fingerprint);
+extern int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c);
 
 static ngx_int_t ngx_http_ssl_fingerprint_init(ngx_conf_t *cf);
 
@@ -95,20 +95,28 @@ static ngx_int_t
 ngx_http_http2_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_str_t fingerprint = ngx_null_string;
+    if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
 
     if (r->stream == NULL)
     {
         return NGX_OK;
     }
 
-    if (ngx_http2_fingerprint(r->connection, r->stream->connection, r->pool, &fingerprint) == NGX_DECLINED)
+    if (r->stream->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_http2_fingerprint(r->connection, r->stream->connection) == NGX_DECLINED)
     {
         return NGX_ERROR;
     }
 
-    v->data = fingerprint.data;
-    v->len = fingerprint.len;
+    v->data = r->stream->connection->fp_str.data;
+    v->len = r->stream->connection->fp_str.len;
     v->valid = 1;
     v->no_cacheable = 1;
     v->not_found = 0;

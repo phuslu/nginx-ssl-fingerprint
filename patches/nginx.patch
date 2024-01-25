@@ -129,10 +129,10 @@ index 0e45a7b..08ad794 100644
              break;
  
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 4e25293..4046b3c 100644
+index 4e25293..151e585 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
-@@ -164,6 +164,12 @@ struct ngx_http_v2_connection_s {
+@@ -164,6 +164,13 @@ struct ngx_http_v2_connection_s {
      unsigned                         blocked:1;
      unsigned                         goaway:1;
      unsigned                         push_disabled:1;
@@ -142,6 +142,7 @@ index 4e25293..4046b3c 100644
 +    ngx_uint_t                       fp_windowupdate;
 +    ngx_str_t                        fp_priorities;
 +    ngx_str_t                        fp_pseudoheaders;
++    ngx_str_t                        fp_str;
  };
  
  

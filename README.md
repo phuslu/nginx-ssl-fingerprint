@@ -4,17 +4,17 @@ A high performance nginx module for ja3 and http2 fingerprint.
 
 ## Patches
  - [nginx - save ja3/http2 fingerprint](patches/nginx.patch)
- - [openssl - expose clienthello data](patches/openssl.1_1_1.patch)
+ - [openssl - save clienthello data](patches/openssl.1_1_1.patch)
 
 ## Configuration
 
 ### Variables
 
-| Name              | Default Value | Comments                                                    |
-| ----------------- | ------------- | ----------------------------------------------------------- |
-| http_ssl_greased  | 0             | TLS greased flag.                                           |
-| http_ssl_ja3      | NULL          | The ja3 fingerprint for a SSL connection for a HTTP server. |
-| http2_fingerprint | NULL          | The http2 fingerprint.                                      |
+| Name              | Default Value | Comments                 |
+| ----------------- | ------------- | ------------------------ |
+| http_ssl_greased  | 0             | TLS greased flag.        |
+| http_ssl_ja3      | NULL          | The ja3 fingerprint.     |
+| http2_fingerprint | NULL          | The http2 fingerprint.   |
 
 #### Example
 
