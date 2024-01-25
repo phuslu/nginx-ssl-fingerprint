@@ -1,8 +1,8 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e..7ce0f91 100644
+index 7b0417e..ac4f6a8 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
-@@ -1710,6 +1710,170 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1710,6 +1710,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -29,151 +29,10 @@ index 7b0417e..7ce0f91 100644
 +
 +    return 1;
 +}
-+
-+static inline unsigned char *
-+append_uint16(unsigned char* dst, uint16_t n)
-+{
-+    if (n < 10) {
-+        *dst = n + '0';
-+        dst++;
-+    } else if (n < 100) {
-+        *(dst+1) = n % 10 + '0';
-+        *dst = n / 10 + '0';
-+        dst += 2;
-+    } else if (n < 1000) {
-+        *(dst+2) = n % 10 + '0';
-+        n /= 10;
-+        *(dst+1) = n % 10 + '0';
-+        *dst = n / 10 + '0';
-+        dst += 3;
-+    }  else if (n < 10000) {
-+        *(dst+3) = n % 10 + '0';
-+        n /= 10;
-+        *(dst+2) = n % 10 + '0';
-+        n /= 10;
-+        *(dst+1) = n % 10 + '0';
-+        *dst = n / 10 + '0';
-+        dst += 4;
-+    } else {
-+        *(dst+4) = n % 10 + '0';
-+        n /= 10;
-+        *(dst+3) = n % 10 + '0';
-+        n /= 10;
-+        *(dst+2) = n % 10 + '0';
-+        n /= 10;
-+        *(dst+1) = n % 10 + '0';
-+        *dst = n / 10 + '0';
-+        dst += 5;
-+    }
-+
-+    return dst;
-+}
-+
-+#define IS_GREASE_CODE(code) (((code)&0x0f0f) == 0x0a0a && ((code)&0xff) == ((code)>>8))
-+
-+void
-+ngx_ssl_client_hello_ja3_fp(ngx_connection_t *c) {
-+    u_char *ptr = NULL, *data = NULL;
-+    size_t num = 0, i;
-+    uint16_t n, greased = 0;
-+
-+    if (c == NULL) {
-+        return;
-+    }
-+
-+    if (c->ssl == NULL) {
-+        return;
-+    }
-+
-+    c->ssl->fp_ja3_str.len = c->ssl->fp_ja3_data.len * 3;
-+    c->ssl->fp_ja3_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_str.len);
-+
-+    /* start */
-+    data = c->ssl->fp_ja3_data.data;
-+    if (!data) {
-+        return;
-+    }
-+
-+    /* version */
-+    ptr = c->ssl->fp_ja3_str.data;
-+    ptr = append_uint16(ptr, *(uint16_t*)data);
-+    *ptr++ = ',';
-+    data += 2;
-+
-+    /* ciphers */
-+    num = *(uint16_t*)data;
-+    for (i = 2; i <= num; i += 2) {
-+        n = ((uint16_t)data[i]) << 8 | ((uint16_t)data[i+1]);
-+        if (!IS_GREASE_CODE(n)) {
-+            /* if (data[i] == 0x13) {
-+                c->ssl->fp_ja3_str.data[2] = '2'; // fixup tls1.3 version
-+            } */
-+            ptr = append_uint16(ptr, n);
-+            *ptr++ = '-';
-+        } else if (greased == 0) {
-+            greased = n;
-+        }
-+    }
-+    *(ptr-1) = ',';
-+    data += 2 + num;
-+
-+    /* extensions */
-+    num = *(uint16_t*)data;
-+    for (i = 2; i <= num; i += 2) {
-+        n = *(uint16_t*)(data+i);
-+        if (!IS_GREASE_CODE(n)) {
-+            ptr = append_uint16(ptr, n);
-+            *ptr++ = '-';
-+        }
-+    }
-+    if (num != 0) {
-+        *(ptr-1) = ',';
-+        data += 2 + num;
-+    } else {
-+        *(ptr++) = ',';
-+    }
-+
-+
-+    /* groups */
-+    num = *(uint16_t*)data;
-+    for (i = 2; i < num; i += 2) {
-+        n = ((uint16_t)data[i]) << 8 | ((uint16_t)data[i+1]);
-+        if (!IS_GREASE_CODE(n)) {
-+            ptr = append_uint16(ptr, n);
-+            *ptr++ = '-';
-+        }
-+    }
-+    if (num != 0) {
-+        *(ptr-1) = ',';
-+        data += num;
-+    } else {
-+        *(ptr++) = ',';
-+    }
-+
-+    /* formats */
-+    num = *(uint8_t*)data;
-+    for (i = 1; i < num; i++) {
-+        ptr = append_uint16(ptr, (uint16_t)data[i]);
-+        *ptr++ = '-';
-+    }
-+    if (num != 0) {
-+        data += num;
-+        *(ptr-1) = ',';
-+        *ptr-- = 0;
-+    }
-+
-+    /* end */
-+    c->ssl->fp_ja3_str.len = ptr - c->ssl->fp_ja3_str.data;
-+
-+    /* greased */
-+    c->ssl->fp_tls_greased = greased;
-+
-+    return;
-+}
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1730,11 +1894,16 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1730,6 +1753,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -182,14 +41,6 @@ index 7b0417e..7ce0f91 100644
      n = SSL_do_handshake(c->ssl->connection);
  
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
- 
-     if (n == 1) {
-+        ngx_ssl_client_hello_ja3_fp(c);
-+
-+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_fp: str=[%V], length=[%d]", &c->ssl->fp_ja3_str, c->ssl->fp_ja3_str.len);
- 
-         if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
-             return NGX_ERROR;
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
 index c9e86d9..3b9d210 100644
 --- a/src/event/ngx_event_openssl.h

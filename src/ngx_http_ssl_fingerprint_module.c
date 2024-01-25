@@ -3,6 +3,7 @@
 #include <ngx_http.h>
 #include <ngx_log.h>
 
+extern int ngx_ssl_ja3(ngx_connection_t *c);
 extern int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c, ngx_pool_t *pool, ngx_str_t *fingerprint);
 
 static ngx_int_t ngx_http_ssl_fingerprint_init(ngx_conf_t *cf);
@@ -47,6 +48,11 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
         return NGX_OK;
     }
 
+    if (ngx_ssl_ja3(r->connection) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
     v->len = 1;
     v->data = (u_char*)(r->connection->ssl->fp_tls_greased ? "1" : "0");
 
@@ -71,8 +77,9 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    if (r->connection->ssl->fp_ja3_str.data == NULL) {
-        return NGX_OK;
+    if (ngx_ssl_ja3(r->connection) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
     }
 
     v->data = r->connection->ssl->fp_ja3_str.data;
