@@ -57,7 +57,7 @@ index c9e86d9..3b9d210 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 0e45a7b..334396f 100644
+index 0e45a7b..8d8f7df 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -332,6 +332,14 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -65,7 +65,7 @@ index 0e45a7b..334396f 100644
      }
  
 +    h2c->fp_fingerprinted = 0;
-+    h2c->fp_settings.data = ngx_pnalloc(c->pool, 30);
++    h2c->fp_settings.data = ngx_pnalloc(c->pool, 32);
 +    h2c->fp_settings.len = 0;
 +    h2c->fp_priorities.data = ngx_pnalloc(c->pool, 32);
 +    h2c->fp_priorities.len = 0;
@@ -90,25 +90,21 @@ index 0e45a7b..334396f 100644
      return ngx_http_v2_state_header_block(h2c, pos, end);
  
  rst_stream:
-@@ -1803,6 +1819,13 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
-         goto error;
+@@ -1804,6 +1820,9 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
      }
  
-+    if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < 32) {
-+        if (header->name.data[0] == ':' && header->name.len > 1)
-+            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
-+        else
-+            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[0];
-+    }
-+
      if (header->name.data[0] == ':') {
++        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < 32 && header->name.len > 1)
++            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
++
          rc = ngx_http_v2_pseudo_header(r, header);
  
-@@ -2227,6 +2250,12 @@ ngx_http_v2_state_settings_params(ngx_http_v2_connection_t *h2c, u_char *pos,
+         if (rc == NGX_OK) {
+@@ -2227,6 +2246,12 @@ ngx_http_v2_state_settings_params(ngx_http_v2_connection_t *h2c, u_char *pos,
          ngx_log_debug2(NGX_LOG_DEBUG_HTTP, h2c->connection->log, 0,
                         "http2 setting %ui:%ui", id, value);
  
-+        if (!h2c->fp_fingerprinted && h2c->fp_settings.len < 30) {
++        if (!h2c->fp_fingerprinted && h2c->fp_settings.len < 32) {
 +            h2c->fp_settings.data[h2c->fp_settings.len] = (uint8_t)id;
 +            *(uint32_t*)(h2c->fp_settings.data + h2c->fp_settings.len + 1)  = (uint32_t)value;
 +            h2c->fp_settings.len += 5;
@@ -117,7 +113,7 @@ index 0e45a7b..334396f 100644
          switch (id) {
  
          case NGX_HTTP_V2_INIT_WINDOW_SIZE_SETTING:
-@@ -2519,6 +2548,9 @@ ngx_http_v2_state_window_update(ngx_http_v2_connection_t *h2c, u_char *pos,
+@@ -2519,6 +2544,9 @@ ngx_http_v2_state_window_update(ngx_http_v2_connection_t *h2c, u_char *pos,
      }
  
      h2c->send_window += window;
