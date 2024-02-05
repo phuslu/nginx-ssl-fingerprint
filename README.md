@@ -3,7 +3,7 @@
 A high performance nginx module for ja3 and http2 fingerprint.
 
 ## Patches
- - [nginx - save ja3/http2 fingerprint](patches/nginx.patch)
+ - [nginx - save ja3/http2 fingerprint](patches/nginx.1_25.patch)
  - [openssl - save clienthello data](patches/openssl.3_2.patch)
 
 ## Configuration
@@ -37,13 +37,13 @@ http {
 # Clone
 
 $ git clone -b openssl-3.2 --depth=1 https://github.com/openssl/openssl
-$ git clone -b release-1.23.1 --depth=1 https://github.com/nginx/nginx
+$ git clone -b release-1.25.3 --depth=1 https://github.com/nginx/nginx
 $ git clone https://github.com/phuslu/nginx-ssl-fingerprint
 
 # Patch
 
 $ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.3_2.patch
-$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.patch
+$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.1_25.patch
 
 # Configure & Build
 
