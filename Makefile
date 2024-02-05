@@ -8,7 +8,7 @@ build-nginx:
 	
 .PHONY: run-nginx
 run-nginx: build-nginx
-	docker run -it --rm -v $(PWD):/build/nginx-ssl-fingerprint -p 8444:8444 ${DOCKER_NGINX_IMAGE}
+	docker run -it --rm -v $(PWD):/build/nginx-ssl-fingerprint -p 4433:4433 ${DOCKER_NGINX_IMAGE}
 
 .PHONY: build-tlsfuzzer
 build-tlsfuzzer:

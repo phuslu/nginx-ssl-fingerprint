@@ -8,7 +8,7 @@
       "/build/nginx-ssl-fingerprint/docker/tlsfuzzer/nginx.conf"
     ],
     "server_hostname": "localhost",
-    "server_port": 8444,
+    "server_port": 4433,
     "environment": {
       "PYTHONPATH": "."
     },
@@ -16,7 +16,7 @@
       "-n",
       "0",
       "-p",
-      "8444",
+      "4433",
       "-h",
       "localhost"
     ],

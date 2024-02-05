@@ -22,7 +22,7 @@ RUN patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.1_1_1.patch && 
     ASAN_OPTIONS=symbolize=1 ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-cc-opt="-fsanitize=address -O -fno-omit-frame-pointer" --with-ld-opt="-L/usr/local/lib -Wl,-E -lasan" && \
     make
 
-EXPOSE 8444
+EXPOSE 4433
 
 CMD ./nginx/objs/nginx -p /build -c nginx-ssl-fingerprint/nginx.conf
 

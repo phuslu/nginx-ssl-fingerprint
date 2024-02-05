@@ -54,5 +54,5 @@ $ make
 # Test
 
 $ objs/nginx -p . -c $(pwd)/../nginx-ssl-fingerprint/nginx.conf
-$ curl -k https://127.0.0.1:8444
+$ curl -k https://127.0.0.1:4433
 ```
