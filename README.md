@@ -55,4 +55,13 @@ $ make
 
 $ objs/nginx -p . -c $(pwd)/../nginx-ssl-fingerprint/nginx.conf
 $ curl -k https://127.0.0.1:4433
+
+# Fuzzing
+
+$ git clone git clone https://github.com/tlsfuzzer/tlsfuzzer
+$ cd tlsfuzzer
+$ python3 -m venv venv
+$ venv/bin/pip install --pre tlslite-ng
+$ PYTHONPATH=. venv/bin/python scripts/test-client-hello-max-size.py
+
 ```
