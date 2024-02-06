@@ -6,6 +6,15 @@ A high performance nginx module for ja3 and http2 fingerprint.
  - [nginx - save ja3/http2 fingerprint](patches)
  - [openssl - save clienthello data](patches)
 
+## Support Matrix
+
+|            | OpenSSL_1_1_1 | openssl-3.0 | openssl-3.1 | openssl-3.2 |
+| -----------| -------------------- | ----------- | ----------- | ----------- |
+| nginx-1.22 | ✅ | ✅ | ✅ | ✅ |
+| nginx-1.23 | ✅ | ✅ | ✅ | ✅ |
+| nginx-1.24 | ✅ | ✅ | ✅ | ✅ |
+| nginx-1.25 | ✅ | ✅ | ✅ | ✅ |
+
 ## Configuration
 
 ### Variables
