@@ -31,9 +31,10 @@ jobs:
           make
       - name: Test
         run: |
-          nohup nginx/objs/nginx -p . -c nginx-ssl-fingerprint/nginx.conf </dev/null &>/dev/null &
+          nohup nginx/objs/nginx -p . -c nginx-ssl-fingerprint/nginx.conf </dev/null &>nginx.log &
           sleep 2
           curl -kv https://127.0.0.1:4433
+          cat nginx.log
       - name: Fuzzing
         run: |
           git clone https://github.com/tlsfuzzer/tlsfuzzer
