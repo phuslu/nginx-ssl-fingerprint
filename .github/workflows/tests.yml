@@ -18,8 +18,8 @@ jobs:
           git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
       - name: Patch
         run: |
-          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.3_2.patch
-          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.1_25.patch
+          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.openssl-3.2.patch
+          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-1.25.patch
       - name: Build
         run: |
           cd nginx

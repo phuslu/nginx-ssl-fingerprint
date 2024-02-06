@@ -3,8 +3,8 @@
 A high performance nginx module for ja3 and http2 fingerprint.
 
 ## Patches
- - [nginx - save ja3/http2 fingerprint](patches/nginx.1_25.patch)
- - [openssl - save clienthello data](patches/openssl.3_2.patch)
+ - [nginx - save ja3/http2 fingerprint](patches)
+ - [openssl - save clienthello data](patches)
 
 ## Configuration
 
@@ -42,8 +42,8 @@ $ git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
 
 # Patch
 
-$ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.3_2.patch
-$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.1_25.patch
+$ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.openssl-3.2.patch
+$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-1.25.patch
 
 # Build
 
@@ -58,7 +58,7 @@ $ curl -k https://127.0.0.1:4433
 
 # Fuzzing
 
-$ git clone git clone https://github.com/tlsfuzzer/tlsfuzzer
+$ git clone https://github.com/tlsfuzzer/tlsfuzzer
 $ cd tlsfuzzer
 $ python3 -m venv venv
 $ venv/bin/pip install --pre tlslite-ng
