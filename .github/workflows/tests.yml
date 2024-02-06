@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - master
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        run: |
+          git clone -b openssl-3.2 --depth=1 https://github.com/openssl/openssl
+          git clone -b release-1.25.3 --depth=1 https://github.com/nginx/nginx
+          git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
+      - name: Patch
+        run: |
+          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.3_2.patch
+          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx.1_25.patch
+      - name: Build
+        run: |
+          cd nginx
+          ASAN_OPTIONS=symbolize=1 ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-http_v2_module --with-cc-opt="-fsanitize=address -O -fno-omit-frame-pointer" --with-ld-opt="-L/usr/local/lib -Wl,-E -lasan"
+          make
+      - name: Test
+        run: |
+          nohup nginx/objs/nginx -p . -c nginx-ssl-fingerprint/nginx.conf </dev/null &>/dev/null &
+          sleep 2
+          curl -kv https://127.0.0.1:4433
+      - name: Fuzzing
+        run: |
+          git clone https://github.com/tlsfuzzer/tlsfuzzer
+          cd tlsfuzzer
+          python3 -m venv venv
+          venv/bin/pip install --pre tlslite-ng
+          for file in scripts/*.py; do
+            PYTHONPATH=. venv/bin/python $file || true
+            pgrep nginx
+          done
+          curl -kv -sSf https://127.0.0.1:4433
