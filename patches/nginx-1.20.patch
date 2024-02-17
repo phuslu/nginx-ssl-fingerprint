@@ -1,0 +1,143 @@
+diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
+index ce2a566..98c71f7 100644
+--- a/src/event/ngx_event_openssl.c
++++ b/src/event/ngx_event_openssl.c
+@@ -1741,6 +1741,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+     return NGX_OK;
+ }
+ 
++int
++ngx_ssl_client_hello_ja3_cb(SSL *s, int *al, void *arg) {
++    ngx_connection_t  *c = arg;
++
++    if (c == NULL) {
++        return 1;
++    }
++
++    if (c->ssl == NULL) {
++        return 1;
++    }
++
++    c->ssl->fp_ja3_data.len = SSL_client_hello_get_ja3_data(c->ssl->connection, NULL);
++
++    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_cb: alloc %d bytes", c->ssl->fp_ja3_data.len);
++
++    c->ssl->fp_ja3_data.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_data.len);
++    c->ssl->fp_ja3_data.len = SSL_client_hello_get_ja3_data(c->ssl->connection, c->ssl->fp_ja3_data.data);
++
++    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_client_hello_ja3_cb: used %d bytes", c->ssl->fp_ja3_data.len);
++
++    return 1;
++}
+ 
+ ngx_int_t
+ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1761,6 +1784,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
+ 
+     ngx_ssl_clear_error(c->log);
+ 
++    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_ssl_client_hello_ja3_cb, c);
++
+     n = SSL_do_handshake(c->ssl->connection);
+ 
+     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
+index 81b87d7..e54f32d 100644
+--- a/src/event/ngx_event_openssl.h
++++ b/src/event/ngx_event_openssl.h
+@@ -119,6 +119,10 @@ struct ngx_ssl_connection_s {
+     unsigned                    in_ocsp:1;
+     unsigned                    early_preread:1;
+     unsigned                    write_blocked:1;
++
++    ngx_str_t                   fp_ja3_data;
++    ngx_str_t                   fp_ja3_str;
++    uint16_t                    fp_tls_greased;
+ };
+ 
+ 
+diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
+index 3611a2e..6663012 100644
+--- a/src/http/v2/ngx_http_v2.c
++++ b/src/http/v2/ngx_http_v2.c
+@@ -332,6 +332,14 @@ ngx_http_v2_init(ngx_event_t *rev)
+         ngx_add_timer(rev, cscf->client_header_timeout);
+     }
+ 
++    h2c->fp_fingerprinted = 0;
++    h2c->fp_settings.data = ngx_pnalloc(c->pool, 32);
++    h2c->fp_settings.len = 0;
++    h2c->fp_priorities.data = ngx_pnalloc(c->pool, 32);
++    h2c->fp_priorities.len = 0;
++    h2c->fp_pseudoheaders.data = ngx_pnalloc(c->pool, 32);
++    h2c->fp_pseudoheaders.len = 0;
++
+     c->idle = 1;
+     ngx_reusable_connection(c, 0);
+ 
+@@ -1381,6 +1389,14 @@ ngx_http_v2_state_headers(ngx_http_v2_connection_t *h2c, u_char *pos,
+         }
+     }
+ 
++    if (!h2c->fp_fingerprinted && h2c->fp_priorities.len < 32) {
++        h2c->fp_priorities.data[h2c->fp_priorities.len] = (uint8_t)stream->node->id;
++        h2c->fp_priorities.data[h2c->fp_priorities.len+1] = (uint8_t)excl;
++        h2c->fp_priorities.data[h2c->fp_priorities.len+2] = (uint8_t)depend;
++        h2c->fp_priorities.data[h2c->fp_priorities.len+3] = (uint8_t)(weight-1);
++        h2c->fp_priorities.len += 4;
++    }
++
+     return ngx_http_v2_state_header_block(h2c, pos, end);
+ 
+ rst_stream:
+@@ -1803,6 +1819,9 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
+     }
+ 
+     if (header->name.data[0] == ':') {
++        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < 32 && header->name.len > 1)
++            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
++
+         rc = ngx_http_v2_pseudo_header(r, header);
+ 
+         if (rc == NGX_OK) {
+@@ -2226,6 +2245,12 @@ ngx_http_v2_state_settings_params(ngx_http_v2_connection_t *h2c, u_char *pos,
+         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, h2c->connection->log, 0,
+                        "http2 setting %ui:%ui", id, value);
+ 
++        if (!h2c->fp_fingerprinted && h2c->fp_settings.len < 32) {
++            h2c->fp_settings.data[h2c->fp_settings.len] = (uint8_t)id;
++            *(uint32_t*)(h2c->fp_settings.data + h2c->fp_settings.len + 1)  = (uint32_t)value;
++            h2c->fp_settings.len += 5;
++        }
++
+         switch (id) {
+ 
+         case NGX_HTTP_V2_INIT_WINDOW_SIZE_SETTING:
+@@ -2518,6 +2543,9 @@ ngx_http_v2_state_window_update(ngx_http_v2_connection_t *h2c, u_char *pos,
+     }
+ 
+     h2c->send_window += window;
++    if (!h2c->fp_fingerprinted) {
++        h2c->fp_windowupdate = window;
++    }
+ 
+     while (!ngx_queue_empty(&h2c->waiting)) {
+         q = ngx_queue_head(&h2c->waiting);
+diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
+index 3492297..7ff789b 100644
+--- a/src/http/v2/ngx_http_v2.h
++++ b/src/http/v2/ngx_http_v2.h
+@@ -165,6 +165,13 @@ struct ngx_http_v2_connection_s {
+     unsigned                         blocked:1;
+     unsigned                         goaway:1;
+     unsigned                         push_disabled:1;
++
++    unsigned                         fp_fingerprinted:1;
++    ngx_str_t                        fp_settings;
++    ngx_uint_t                       fp_windowupdate;
++    ngx_str_t                        fp_priorities;
++    ngx_str_t                        fp_pseudoheaders;
++    ngx_str_t                        fp_str;
+ };
+ 
+ 
