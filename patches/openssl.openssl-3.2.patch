@@ -29,10 +29,10 @@ index 7e3d1a7..ecee15e 100644
  # define TLSEXT_TYPE_compress_certificate        27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 00e7ddb..5dbac23 100644
+index 26cae27..9961509 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6571,6 +6571,110 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -6572,6 +6572,110 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
