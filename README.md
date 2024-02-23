@@ -76,3 +76,31 @@ $ venv/bin/pip install --pre tlslite-ng
 $ PYTHONPATH=. venv/bin/python scripts/test-client-hello-max-size.py
 
 ```
+
+## Peformance
+
+A Performance result as below, check github [actions][actions] for more results and details.
+```
+------------- Nginx Baseline -------------
+Running 30s test @ https://127.0.0.1:4433
+  2 threads and 2000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    19.54ms   26.60ms 626.85ms   98.89%
+    Req/Sec    37.26k     3.06k   44.23k    82.94%
+  2155428 requests in 30.07s, 2.31GB read
+Requests/sec:  71669.13
+Transfer/sec:     78.81MB
+
+------------- Nginx With Fingerprint -------------
+Running 30s test @ https://127.0.0.1:4433
+  2 threads and 2000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    21.03ms   26.36ms 618.44ms   98.63%
+    Req/Sec    37.45k     3.49k   45.50k    77.80%
+  2162578 requests in 30.07s, 2.22GB read
+Requests/sec:  71909.53
+Transfer/sec:     75.44MB
+```
+The results indicate that nginx-ssl-fingerprint module performs comparably well.
+
+[actions]: https://github.com/phuslu/nginx-ssl-fingerprint/actions/workflows/performance.yml
