@@ -1,0 +1,80 @@
+name: performance
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - master
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        openssl: [openssl-3.2]
+        nginx: [release-1.25.3]
+    steps:
+      - name: Install packages
+        run: sudo apt update -y && sudo apt-get install -y wrk
+      - name: Config
+        run: |
+          cat <<EOF > nginx.conf
+          worker_processes auto;
+          pid nginx.pid;
+          error_log /dev/stdout error;
+          events {
+              worker_connections  4096;
+          }
+          http {
+              server {
+                  listen                 0.0.0.0:4433 ssl http2;
+                  access_log             /dev/null;
+                  ssl_certificate_key    "data:-----BEGIN EC PARAMETERS-----\nBggqhkjOPQMBBw==\n-----END EC PARAMETERS-----\n-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIL02pwZutbzkmdIM0QpvD7W3pcL2dGaeWrbQ8pNCHPFeoAoGCCqGSM49\nAwEHoUQDQgAE0Jektzpg3tJx3iPU05WwG4GweCwGWv87kkZQGB+6vG/kQQeOhnZ7\n7TCroQgY4ZVnBRZTD0lvxSyR6rwt3lWQ4A==\n-----END EC PRIVATE KEY-----\n";
+                  ssl_certificate        "data:-----BEGIN CERTIFICATE-----\nMIIBtjCCAV2gAwIBAgIUN/O0uv7B+18ohuf05ygsoC82liswCgYIKoZIzj0EAwIw\nMTELMAkGA1UEBhMCVVMxDDAKBgNVBAsMA1dlYjEUMBIGA1UEAwwLZXhhbXBsZS5v\ncmcwHhcNMjIwNzI4MTgzMzA2WhcNMjMwNzI5MTgzMzA2WjAxMQswCQYDVQQGEwJV\nUzEMMAoGA1UECwwDV2ViMRQwEgYDVQQDDAtleGFtcGxlLm9yZzBZMBMGByqGSM49\nAgEGCCqGSM49AwEHA0IABNCXpLc6YN7Scd4j1NOVsBuBsHgsBlr/O5JGUBgfurxv\n5EEHjoZ2e+0wq6EIGOGVZwUWUw9Jb8Uskeq8Ld5VkOCjUzBRMB0GA1UdDgQWBBSH\n9cc3JRcpyPh3nEa41Ux6RDGjLTAfBgNVHSMEGDAWgBSH9cc3JRcpyPh3nEa41Ux6\nRDGjLTAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIChRR5U7MMYQ\ntMK0zhNnt2SqRy30VcPIm9qoEms5cNxdAiBb273P7vSkj/PmDd1WsFVkg9NymBaT\n0nsIem2LKav60g==\n-----END CERTIFICATE-----\n";
+                  default_type           "application/json";
+                  return                 200 "#____________________________http2_fingerprint\n#__________________________________________________________________________________________________________________________________________________________________________________________________________________________http_ssl_ja3\nPADDING PADDING PADDING PADDINGPADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING PADDING\n";
+              }
+          }
+          EOF
+          cat nginx.conf
+      - name: Clone
+        run: |
+          git clone -b ${{ matrix.openssl }} --depth=1 https://github.com/openssl/openssl
+          git clone -b ${{ matrix.nginx }} --depth=1 https://github.com/nginx/nginx
+          git clone -b master https://github.com/${GITHUB_REPOSITORY}
+      - name: Baseline Build
+        run: |
+          cd nginx
+          ./auto/configure --with-openssl=$(pwd)/../openssl --with-http_ssl_module --with-stream_ssl_module --with-stream --with-http_v2_module
+          make
+      - name: Baseline Performance
+        run: |
+          nginx/objs/nginx -p . -c nginx.conf
+          sleep 1
+          curl -ksSf https://127.0.0.1:4433
+          wrk -c 2000 -d 30s -t 2 https://127.0.0.1:4433 | tee performance-baseline.txt
+      - name: Patch
+        run: |
+          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.${{ matrix.openssl }}.patch
+          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-$(echo ${{ matrix.nginx }} | cut -b9-12).patch
+      - name: Build
+        run: |
+          cd nginx
+          ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-stream --with-http_v2_module
+          make
+      - name: Performance
+        run: |
+          kill -9 $(pgrep nginx)
+          sleep 1
+          sed -i -E 's/#_+http/$http/g' nginx.conf
+          nginx/objs/nginx -p . -c nginx.conf
+          sleep 1
+          curl -ksSf https://127.0.0.1:4433
+          wrk -c 2000 -d 30s -t 2 https://127.0.0.1:4433 | tee performance-fingerprint.txt
+      - name: Result
+        run: |
+          echo '------------- Nginx Baseline -------------'
+          cat performance-baseline.txt
+          echo '------------- Nginx With Fingerprint -------------'
+          cat performance-fingerprint.txt
