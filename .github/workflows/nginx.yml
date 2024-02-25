@@ -40,7 +40,7 @@ jobs:
         run: |
           nohup nginx/objs/nginx -p . -c nginx-ssl-fingerprint/nginx.conf </dev/null &>nginx.log &
           sleep 2
-          curl -kv https://127.0.0.1:8833
+          curl -kv https://127.0.0.1:4443
           cat nginx.log
       - name: Fuzzing
         run: |
@@ -53,4 +53,4 @@ jobs:
             pgrep nginx
           done
           curl -kv -sSf https://127.0.0.1:4433
-          curl -kv -sSf https://127.0.0.1:8833
+          curl -kv -sSf https://127.0.0.1:4443

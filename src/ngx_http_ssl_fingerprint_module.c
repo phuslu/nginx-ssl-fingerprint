@@ -1,7 +1,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <ngx_log.h>
 
 extern int ngx_ssl_ja3(ngx_connection_t *c);
 extern int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c);

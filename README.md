@@ -51,9 +51,9 @@ http {
 #### Example
 
 ```nginx
-http {
+stream {
     server {
-        listen                 127.0.0.1:4433 ssl http2;
+        listen                 127.0.0.1:4443 ssl;
         ssl_certificate        cert.pem;
         ssl_certificate_key    priv.key;
         error_log              /dev/stderr debug;

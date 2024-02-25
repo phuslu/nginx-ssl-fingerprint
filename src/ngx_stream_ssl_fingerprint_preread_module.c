@@ -1,7 +1,8 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
-#include <ngx_md5.h>
+
+extern int ngx_ssl_ja3(ngx_connection_t *c);
 
 static ngx_int_t ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf);
 
