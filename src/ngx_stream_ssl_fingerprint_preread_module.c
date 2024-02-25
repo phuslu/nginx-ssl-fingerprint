@@ -31,7 +31,7 @@ ngx_module_t  ngx_stream_ssl_fingerprint_preread_module = {
 
 static ngx_int_t
 ngx_stream_ssl_greased(ngx_stream_session_t *s,
-                 ngx_http_variable_value_t *v, uintptr_t data)
+                 ngx_stream_variable_value_t *v, uintptr_t data)
 {
     if (s->connection == NULL)
     {
@@ -60,7 +60,7 @@ ngx_stream_ssl_greased(ngx_stream_session_t *s,
 
 static ngx_int_t
 ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
-                 ngx_http_variable_value_t *v, uintptr_t data)
+                 ngx_stream_variable_value_t *v, uintptr_t data)
 {
     if (s->connection == NULL)
     {
