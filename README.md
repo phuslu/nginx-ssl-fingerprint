@@ -19,7 +19,7 @@ A high performance nginx module for ja3 and http2 fingerprint.
 
 ## Configuration
 
-### Variables
+### HTTP module variables
 
 | Name              | Default Value | Comments                 |
 | ----------------- | ------------- | ------------------------ |
@@ -40,6 +40,28 @@ http {
     }
 }
 ```
+
+### Stream module variables
+
+| Name                | Default Value | Comments                 |
+| ------------------- | ------------- | ------------------------ |
+| stream_ssl_greased  | 0             | TLS greased flag.        |
+| stream_ssl_ja3      | NULL          | The ja3 fingerprint.     |
+
+#### Example
+
+```nginx
+http {
+    server {
+        listen                 127.0.0.1:4433 ssl http2;
+        ssl_certificate        cert.pem;
+        ssl_certificate_key    priv.key;
+        error_log              /dev/stderr debug;
+        return                 "ja3: $stream_ssl_ja3\n";
+    }
+}
+```
+
 
 ## Quick Start
 

@@ -29,11 +29,17 @@ jobs:
           cd nginx
           ASAN_OPTIONS=symbolize=1 ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-http_v2_module --with-cc-opt="-fsanitize=address -O -fno-omit-frame-pointer" --with-ld-opt="-L/usr/local/lib -Wl,-E -lasan"
           make
-      - name: Test
+      - name: Test HTTP module
         run: |
           nohup nginx/objs/nginx -p . -c nginx-ssl-fingerprint/nginx.conf </dev/null &>nginx.log &
           sleep 2
           curl -kv https://127.0.0.1:4433
+          cat nginx.log
+      - name: Test Stream module
+        run: |
+          nohup nginx/objs/nginx -p . -c nginx-ssl-fingerprint/nginx.conf </dev/null &>nginx.log &
+          sleep 2
+          curl -kv https://127.0.0.1:8833
           cat nginx.log
       - name: Fuzzing
         run: |
@@ -46,3 +52,4 @@ jobs:
             pgrep nginx
           done
           curl -kv -sSf https://127.0.0.1:4433
+          curl -kv -sSf https://127.0.0.1:8833
