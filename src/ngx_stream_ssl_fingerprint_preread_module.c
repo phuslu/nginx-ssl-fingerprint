@@ -1,6 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
+#include <ngx_md5.h>
 
 extern int ngx_ssl_ja3(ngx_connection_t *c);
 
@@ -87,6 +88,44 @@ ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_stream_ssl_fingerprint_hash(ngx_stream_session_t *s,
+                 ngx_stream_variable_value_t *v, uintptr_t data)
+{
+    ngx_md5_t               ctx;
+    u_char                  hash_buf[16];
+
+
+    if (s->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (s->connection->ssl == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja3(s->connection) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    v->data = ngx_pcalloc(s->connection->pool, 32);
+
+    ngx_md5_init(&ctx);
+    ngx_md5_update(&ctx, s->connection->ssl->fp_ja3_str.data, s->connection->ssl->fp_ja3_str.len);
+    ngx_md5_final(hash_buf, &ctx);
+    ngx_hex_dump(v->data, hash_buf, 16);
+
+    v->len = 32;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
 static ngx_stream_variable_t  ngx_stream_ssl_ja3_variables_list[] = {
 
     {   ngx_string("stream_ssl_greased"),
@@ -98,6 +137,12 @@ static ngx_stream_variable_t  ngx_stream_ssl_ja3_variables_list[] = {
     {   ngx_string("stream_ssl_ja3"),
         NULL,
         ngx_stream_ssl_fingerprint,
+        0, 0, 0
+    },
+
+    {   ngx_string("stream_ssl_ja3_hash"),
+        NULL,
+        ngx_stream_ssl_fingerprint_hash,
         0, 0, 0
     },
 

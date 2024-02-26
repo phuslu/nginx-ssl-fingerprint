@@ -25,6 +25,7 @@ A high performance nginx module for ja3 and http2 fingerprint.
 | ----------------- | ------------- | ------------------------ |
 | http_ssl_greased  | 0             | TLS greased flag.        |
 | http_ssl_ja3      | NULL          | The ja3 fingerprint.     |
+| http_ssl_ja3_hash | NULL          | The ja3 fingerprint hash.|
 | http2_fingerprint | NULL          | The http2 fingerprint.   |
 
 #### Example
@@ -47,6 +48,7 @@ http {
 | ------------------- | ------------- | ------------------------ |
 | stream_ssl_greased  | 0             | TLS greased flag.        |
 | stream_ssl_ja3      | NULL          | The ja3 fingerprint.     |
+| stream_ssl_ja3_hash | NULL          | The ja3 fingerprint hash.|
 
 #### Example
 

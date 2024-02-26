@@ -1,6 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_md5.h>
 
 extern int ngx_ssl_ja3(ngx_connection_t *c);
 extern int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c);
@@ -91,6 +92,44 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
 }
 
 static ngx_int_t
+ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
+                 ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_md5_t               ctx;
+    u_char                  hash_buf[16];
+
+
+    if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (r->connection->ssl == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja3(r->connection) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    v->data = ngx_pcalloc(r->pool, 32);
+
+    ngx_md5_init(&ctx);
+    ngx_md5_update(&ctx, r->connection->ssl->fp_ja3_str.data, r->connection->ssl->fp_ja3_str.len);
+    ngx_md5_final(hash_buf, &ctx);
+    ngx_hex_dump(v->data, hash_buf, 16);
+
+    v->len = 32;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_http2_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
@@ -131,6 +170,10 @@ static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_ja3"),
      NULL,
      ngx_http_ssl_fingerprint,
+     0, 0, 0},
+    {ngx_string("http_ssl_ja3_hash"),
+     NULL,
+     ngx_http_ssl_fingerprint_hash,
      0, 0, 0},
     {ngx_string("http2_fingerprint"),
      NULL,
