@@ -1,9 +1,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <ngx_md5.h>
 
 extern int ngx_ssl_ja3(ngx_connection_t *c);
+extern int ngx_ssl_ja3_hash(ngx_connection_t *c);
 extern int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c);
 
 static ngx_int_t ngx_http_ssl_fingerprint_init(ngx_conf_t *cf);
@@ -95,10 +95,6 @@ static ngx_int_t
 ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_md5_t               ctx;
-    u_char                  hash_buf[16];
-
-
     if (r->connection == NULL)
     {
         return NGX_OK;
@@ -109,19 +105,13 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(r->connection) == NGX_DECLINED)
+    if (ngx_ssl_ja3_hash(r->connection) == NGX_DECLINED)
     {
         return NGX_ERROR;
     }
 
-    v->data = ngx_pcalloc(r->pool, 32);
-
-    ngx_md5_init(&ctx);
-    ngx_md5_update(&ctx, r->connection->ssl->fp_ja3_str.data, r->connection->ssl->fp_ja3_str.len);
-    ngx_md5_final(hash_buf, &ctx);
-    ngx_hex_dump(v->data, hash_buf, 16);
-
-    v->len = 32;
+    v->data = r->connection->ssl->fp_ja3_hash.data;
+    v->len = r->connection->ssl->fp_ja3_hash.len;
     v->valid = 1;
     v->no_cacheable = 1;
     v->not_found = 0;

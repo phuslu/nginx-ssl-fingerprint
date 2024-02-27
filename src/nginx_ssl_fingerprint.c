@@ -3,6 +3,7 @@
 #include <ngx_http.h>
 #include <ngx_log.h>
 #include <ngx_http_v2.h>
+#include <ngx_md5.h>
 
 #define IS_GREASE_CODE(code) (((code)&0x0f0f) == 0x0a0a && ((code)&0xff) == ((code)>>8))
 
@@ -288,6 +289,40 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     c->ssl->fp_tls_greased = greased;
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja3: ja3 str=[%V], len=[%d]", &c->ssl->fp_ja3_str, c->ssl->fp_ja3_str.len);
+
+    return NGX_OK;
+}
+
+int ngx_ssl_ja3_hash(ngx_connection_t *c)
+{
+    if (c == NULL) {
+        return NGX_DECLINED;
+    }
+
+    if (c->ssl == NULL) {
+        return NGX_DECLINED;
+    }
+
+    if (c->ssl->fp_ja3_hash.len > 0) {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja3(c) == NGX_DECLINED) {
+        return NGX_DECLINED;
+    }
+
+    c->ssl->fp_ja3_hash.len = 32;
+    c->ssl->fp_ja3_hash.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_hash.len);
+
+    ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja3_hash: alloc bytes: [%d]\n", c->ssl->fp_ja3_hash.len);
+
+    ngx_md5_t  ctx;
+    u_char hash_buf[16];
+
+    ngx_md5_init(&ctx);
+    ngx_md5_update(&ctx, c->ssl->fp_ja3_str.data, c->ssl->fp_ja3_str.len);
+    ngx_md5_final(hash_buf, &ctx);
+    ngx_hex_dump(c->ssl->fp_ja3_hash.data, hash_buf, 16);
 
     return NGX_OK;
 }

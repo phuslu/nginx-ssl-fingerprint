@@ -1,8 +1,8 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 8468101..1c47425 100644
+index 89f277fe5..d0e8558bb 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
-@@ -1792,6 +1792,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1793,6 +1793,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -32,7 +32,7 @@ index 8468101..1c47425 100644
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1812,6 +1835,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1813,6 +1836,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -42,22 +42,23 @@ index 8468101..1c47425 100644
  
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index c062f91..8fd7174 100644
+index ebb2c35bf..b075c2cf3 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -128,6 +128,10 @@ struct ngx_ssl_connection_s {
+@@ -128,6 +128,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_ocsp:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
 +    ngx_str_t                   fp_ja3_data;
 +    ngx_str_t                   fp_ja3_str;
++    ngx_str_t                   fp_ja3_hash;
 +    uint16_t                    fp_tls_greased;
  };
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 0f5bd3d..aae8ec9 100644
+index 0f5bd3de8..aae8ec9d6 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -301,6 +301,14 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -124,7 +125,7 @@ index 0f5bd3d..aae8ec9 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 6751b30..d519092 100644
+index 6751b3026..d519092dd 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
 @@ -168,6 +168,13 @@ struct ngx_http_v2_connection_s {

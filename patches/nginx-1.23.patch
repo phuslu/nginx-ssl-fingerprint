@@ -1,8 +1,8 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 7b0417e..ac4f6a8 100644
+index 104e8daf7..e52ffba5b 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
-@@ -1710,6 +1710,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+@@ -1758,6 +1758,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
      return NGX_OK;
  }
  
@@ -32,7 +32,7 @@ index 7b0417e..ac4f6a8 100644
  
  ngx_int_t
  ngx_ssl_handshake(ngx_connection_t *c)
-@@ -1730,6 +1753,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1778,6 +1801,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
  
      ngx_ssl_clear_error(c->log);
  
@@ -42,22 +42,23 @@ index 7b0417e..ac4f6a8 100644
  
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index c9e86d9..3b9d210 100644
+index 860ea26dd..b64d80ea2 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -119,6 +119,10 @@ struct ngx_ssl_connection_s {
+@@ -120,6 +120,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_ocsp:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
 +    ngx_str_t                   fp_ja3_data;
 +    ngx_str_t                   fp_ja3_str;
++    ngx_str_t                   fp_ja3_hash;
 +    uint16_t                    fp_tls_greased;
  };
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 0e45a7b..8d8f7df 100644
+index ea3f27c07..911808cff 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -332,6 +332,14 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -90,7 +91,7 @@ index 0e45a7b..8d8f7df 100644
      return ngx_http_v2_state_header_block(h2c, pos, end);
  
  rst_stream:
-@@ -1804,6 +1820,9 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
+@@ -1799,6 +1815,9 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
      }
  
      if (header->name.data[0] == ':') {
@@ -100,7 +101,7 @@ index 0e45a7b..8d8f7df 100644
          rc = ngx_http_v2_pseudo_header(r, header);
  
          if (rc == NGX_OK) {
-@@ -2227,6 +2246,12 @@ ngx_http_v2_state_settings_params(ngx_http_v2_connection_t *h2c, u_char *pos,
+@@ -2224,6 +2243,12 @@ ngx_http_v2_state_settings_params(ngx_http_v2_connection_t *h2c, u_char *pos,
          ngx_log_debug2(NGX_LOG_DEBUG_HTTP, h2c->connection->log, 0,
                         "http2 setting %ui:%ui", id, value);
  
@@ -113,7 +114,7 @@ index 0e45a7b..8d8f7df 100644
          switch (id) {
  
          case NGX_HTTP_V2_INIT_WINDOW_SIZE_SETTING:
-@@ -2519,6 +2544,9 @@ ngx_http_v2_state_window_update(ngx_http_v2_connection_t *h2c, u_char *pos,
+@@ -2516,6 +2541,9 @@ ngx_http_v2_state_window_update(ngx_http_v2_connection_t *h2c, u_char *pos,
      }
  
      h2c->send_window += window;
@@ -124,7 +125,7 @@ index 0e45a7b..8d8f7df 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 4e25293..151e585 100644
+index 4e252931c..151e58571 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
 @@ -164,6 +164,13 @@ struct ngx_http_v2_connection_s {

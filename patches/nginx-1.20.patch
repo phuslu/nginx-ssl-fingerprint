@@ -42,16 +42,17 @@ index ce2a566..98c71f7 100644
  
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 81b87d7..e54f32d 100644
+index 81b87d7..6d4d86b 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -119,6 +119,10 @@ struct ngx_ssl_connection_s {
+@@ -119,6 +119,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_ocsp:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
 +    ngx_str_t                   fp_ja3_data;
 +    ngx_str_t                   fp_ja3_str;
++    ngx_str_t                   fp_ja3_hash;
 +    uint16_t                    fp_tls_greased;
  };
  

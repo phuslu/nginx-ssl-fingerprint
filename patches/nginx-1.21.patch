@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 1e6fc96..e467b75 100644
+index 1e6fc9614..e467b75e6 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -1710,6 +1710,29 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
@@ -42,22 +42,23 @@ index 1e6fc96..e467b75 100644
  
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index c9e86d9..3b9d210 100644
+index c9e86d9c0..5fb6b3cf3 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -119,6 +119,10 @@ struct ngx_ssl_connection_s {
+@@ -119,6 +119,11 @@ struct ngx_ssl_connection_s {
      unsigned                    in_ocsp:1;
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
 +
 +    ngx_str_t                   fp_ja3_data;
 +    ngx_str_t                   fp_ja3_str;
++    ngx_str_t                   fp_ja3_hash;
 +    uint16_t                    fp_tls_greased;
  };
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 0e45a7b..8d8f7df 100644
+index 0e45a7b27..8d8f7dfc2 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -332,6 +332,14 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -124,7 +125,7 @@ index 0e45a7b..8d8f7df 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 70ee287..c57f4f2 100644
+index 70ee287ae..c57f4f241 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
 @@ -164,6 +164,13 @@ struct ngx_http_v2_connection_s {
