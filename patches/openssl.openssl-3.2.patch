@@ -1,5 +1,5 @@
 diff --git a/include/openssl/ssl.h.in b/include/openssl/ssl.h.in
-index 9f91039..81b9c51 100644
+index 9f91039f8a..81b9c51892 100644
 --- a/include/openssl/ssl.h.in
 +++ b/include/openssl/ssl.h.in
 @@ -1894,6 +1894,7 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
@@ -11,7 +11,7 @@ index 9f91039..81b9c51 100644
                                           size_t *num_exts);
  int SSL_client_hello_get0_ext(SSL *s, unsigned int type,
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 7e3d1a7..ecee15e 100644
+index 7e3d1a725b..ecee15e29f 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
 @@ -142,6 +142,13 @@ extern "C" {
@@ -29,10 +29,10 @@ index 7e3d1a7..ecee15e 100644
  # define TLSEXT_TYPE_compress_certificate        27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 26cae27..9961509 100644
+index 26cae27dae..f5d1d8013a 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6572,6 +6572,110 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -6572,6 +6572,99 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -86,15 +86,8 @@ index 26cae27..9961509 100644
 +    num = 0;
 +    for (i = 0; i < sc->clienthello->pre_proc_exts_len; i++) {
 +        ext = sc->clienthello->pre_proc_exts + i;
-+   if (ext->present) {
-+            // Ingore padding due to padding is null where reuse the session_ticket.
-+            if (ext->type== TLSEXT_TYPE_padding) {
-+           // fprintf(stderr, "%d===%d\n",ext->type, TLSEXT_TYPE_padding);
-+                continue;
-+       }
-+
++        if (ext->present)
 +            num++;
-+        }
 +    }
 +    *(uint16_t*)ptr = (uint16_t)num*2;
 +    ptr += 2;
@@ -103,10 +96,6 @@ index 26cae27..9961509 100644
 +        if (ext->present) {
 +            if (ext->received_order >= num)
 +                break;
-+       // Ingore padding due to padding is null where reuse the session_ticket.
-+            if (ext->type== TLSEXT_TYPE_padding) {
-+                continue;
-+       }
 +            if (ext->type== TLSEXT_TYPE_supported_groups)
 +                groups = &ext->data;
 +            if (ext->type== TLSEXT_TYPE_ec_point_formats)
@@ -144,7 +133,7 @@ index 26cae27..9961509 100644
  {
      RAW_EXTENSION *ext;
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 0d3acfb..01ceec6 100644
+index 0d3acfbe66..01ceec6897 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
 @@ -707,6 +707,9 @@ typedef enum tlsext_index_en {
@@ -158,7 +147,7 @@ index 0d3acfb..01ceec6 100644
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 0a64ca2..9460207 100644
+index 0a64ca2246..9460207d1f 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
 @@ -411,6 +411,30 @@ static const EXTENSION_DEFINITION ext_defs[] = {
