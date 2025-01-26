@@ -1,5 +1,5 @@
 diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
-index 9af0c899..c77a04cd 100644
+index 9af0c8995e..c77a04cd90 100644
 --- a/include/openssl/ssl.h
 +++ b/include/openssl/ssl.h
 @@ -1818,6 +1818,7 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
@@ -11,7 +11,7 @@ index 9af0c899..c77a04cd 100644
                                const unsigned char **out, size_t *outlen);
  
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 76d9fda4..a29114f2 100644
+index 76d9fda46e..a29114f215 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
 @@ -131,6 +131,15 @@ extern "C" {
@@ -31,10 +31,10 @@ index 76d9fda4..a29114f2 100644
  # define TLSEXT_TYPE_session_ticket              35
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 47adc321..635b23b3 100644
+index 47adc3211c..be20746b98 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -5219,6 +5219,95 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -5219,6 +5219,94 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -74,11 +74,12 @@ index 47adc321..635b23b3 100644
 +    ptr += 2;
 +
 +    /* ciphers */
-+    num = PACKET_remaining(&s->clienthello->ciphersuites);
-+    *(uint16_t*)ptr = (uint16_t)num;
-+    ptr += 2;
-+    memcpy(ptr, PACKET_data(&s->clienthello->ciphersuites), num);
-+    ptr += num;
++    if (num = PACKET_remaining(&s->clienthello->ciphersuites)) {
++        *(uint16_t*)ptr = (uint16_t)num;
++        ptr += 2;
++        memcpy(ptr, PACKET_data(&s->clienthello->ciphersuites), num);
++        ptr += num;
++    }
 +
 +    /* extensions */
 +    num = 0;
@@ -104,19 +105,17 @@ index 47adc321..635b23b3 100644
 +    ptr += num*2;
 +
 +    /* groups */
-+    if (groups) {
-+        num = PACKET_remaining(groups);
++    if (groups && (num = PACKET_remaining(groups))) {
 +        memcpy(ptr, PACKET_data(groups), num);
 +        *(uint16_t*)ptr = (uint16_t)num;
 +        ptr += num;
 +    } else {
-+         *(uint16_t*)ptr = 0;
-+         ptr += 2;
++        *(uint16_t*)ptr = 0;
++        ptr += 2;
 +    }
 +
 +    /* formats */
-+    if (formats) {
-+        num = PACKET_remaining(formats);
++    if (formats && (num = PACKET_remaining(formats))) {
 +        memcpy(ptr, PACKET_data(formats), num);
 +        *ptr = (uint8_t)num;
 +        ptr += num;
@@ -131,7 +130,7 @@ index 47adc321..635b23b3 100644
                         size_t *outlen)
  {
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 5c792154..a3038c79 100644
+index 5c79215423..a3038c79ea 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
 @@ -714,6 +714,10 @@ typedef enum tlsext_index_en {
@@ -146,7 +145,7 @@ index 5c792154..a3038c79 100644
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 0f39275b..7cb1e622 100644
+index 0f39275baa..7cb1e62287 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
 @@ -377,6 +377,38 @@ static const EXTENSION_DEFINITION ext_defs[] = {
