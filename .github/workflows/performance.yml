@@ -16,7 +16,7 @@ jobs:
         nginx: [release-1.25.3]
     steps:
       - name: Install packages
-        run: sudo apt update -y && sudo apt-get install -y wrk
+        run: sudo apt update -y && sudo apt-get install -y wrk  libpcre3 libpcre3-dev
       - name: Config
         run: |
           cat <<EOF > nginx.conf
