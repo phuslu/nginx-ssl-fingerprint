@@ -11,7 +11,7 @@ index f03f52fbd8..3140c3c5c5 100644
                                const unsigned char **out, size_t *outlen);
  
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 793155e186..ef1f187b15 100644
+index 03f43744b1..a54c78e1fe 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
 @@ -134,6 +134,15 @@ extern "C" {
@@ -31,10 +31,10 @@ index 793155e186..ef1f187b15 100644
  # define TLSEXT_TYPE_session_ticket              35
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index b5cc4af2f0..578598e664 100644
+index f218dcf1db..8bf43c4c58 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -5464,6 +5464,95 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -5482,6 +5482,94 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -74,11 +74,12 @@ index b5cc4af2f0..578598e664 100644
 +    ptr += 2;
 +
 +    /* ciphers */
-+    num = PACKET_remaining(&s->clienthello->ciphersuites);
-+    *(uint16_t*)ptr = (uint16_t)num;
-+    ptr += 2;
-+    memcpy(ptr, PACKET_data(&s->clienthello->ciphersuites), num);
-+    ptr += num;
++    if (num = PACKET_remaining(&s->clienthello->ciphersuites)) {
++        *(uint16_t*)ptr = (uint16_t)num;
++        ptr += 2;
++        memcpy(ptr, PACKET_data(&s->clienthello->ciphersuites), num);
++        ptr += num;
++    }
 +
 +    /* extensions */
 +    num = 0;
@@ -104,19 +105,17 @@ index b5cc4af2f0..578598e664 100644
 +    ptr += num*2;
 +
 +    /* groups */
-+    if (groups) {
-+        num = PACKET_remaining(groups);
++    if (groups && (num = PACKET_remaining(groups))) {
 +        memcpy(ptr, PACKET_data(groups), num);
 +        *(uint16_t*)ptr = (uint16_t)num;
 +        ptr += num;
 +    } else {
-+         *(uint16_t*)ptr = 0;
-+         ptr += 2;
++        *(uint16_t*)ptr = 0;
++        ptr += 2;
 +    }
 +
 +    /* formats */
-+    if (formats) {
-+        num = PACKET_remaining(formats);
++    if (formats && (num = PACKET_remaining(formats))) {
 +        memcpy(ptr, PACKET_data(formats), num);
 +        *ptr = (uint8_t)num;
 +        ptr += num;
@@ -146,7 +145,7 @@ index 845329a809..8fa0619feb 100644
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index e182b5abac..7d5adbf845 100644
+index 2ff809bc0f..fd730c09b8 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
 @@ -369,6 +369,38 @@ static const EXTENSION_DEFINITION ext_defs[] = {
