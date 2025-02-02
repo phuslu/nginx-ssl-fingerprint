@@ -1,0 +1,180 @@
+diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
+index 2f68a55de..d069b72ea 100644
+--- a/src/event/ngx_event_openssl.c
++++ b/src/event/ngx_event_openssl.c
+@@ -11,6 +11,7 @@
+ #include <ngx_event.h>
+ 
+ 
++#define NGX_SSL_JA3_BUFFER_SIZE 256 /* = (sizeof(uint16_t) * 128) */
+ #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
+ 
+ #if (NGX_HAVE_NTLS)
+@@ -1971,6 +1972,40 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+     return NGX_OK;
+ }
+ 
++int
++ngx_ssl_client_hello_ja3_cb(SSL *s, int *al, void *arg)
++{
++    ngx_connection_t  *c = arg;
++    ngx_str_t         *ja;
++
++    if (c == NULL) {
++        return SSL_CLIENT_HELLO_SUCCESS;
++    }
++
++    if (c->ssl == NULL) {
++        return SSL_CLIENT_HELLO_SUCCESS;
++    }
++
++    ja = &c->ssl->fp_ja3_data;
++    ja->len = NGX_SSL_JA3_BUFFER_SIZE;
++
++    ja->data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_data.len);
++    if (ja->data == NULL) {
++        ja->len = 0;
++        return SSL_CLIENT_HELLO_SUCCESS;
++    }
++
++    ja->len = SSL_client_hello_get_ja3_data(c->ssl->connection, ja->data,
++            NGX_SSL_JA3_BUFFER_SIZE);
++    if (ja->len == 0) {
++        ngx_log_error(NGX_LOG_WARN, c->log, 0, "SSL_client_hello_get_ja3_data "
++                "seems the buffer size is less that number of fileds; "
++                "for this SSL connection can't get a ja3 hash string");
++        ja->data = NULL;
++    }
++
++    return SSL_CLIENT_HELLO_SUCCESS;
++}
+ 
+ ngx_int_t
+ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1991,6 +2026,9 @@ ngx_ssl_handshake(ngx_connection_t *c)
+ 
+     ngx_ssl_clear_error(c->log);
+ 
++    (void) SSL_CTX_set_client_hello_cb(c->ssl->session_ctx,
++                                ngx_ssl_client_hello_ja3_cb, c);
++
+     n = SSL_do_handshake(c->ssl->connection);
+ 
+     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
+index 42a01ce62..c4adc270d 100644
+--- a/src/event/ngx_event_openssl.h
++++ b/src/event/ngx_event_openssl.h
+@@ -129,6 +129,11 @@ struct ngx_ssl_connection_s {
+     unsigned                    in_ocsp:1;
+     unsigned                    early_preread:1;
+     unsigned                    write_blocked:1;
++
++    ngx_str_t                   fp_ja3_data;
++    ngx_str_t                   fp_ja3_str;
++    ngx_str_t                   fp_ja3_hash;
++    uint16_t                    fp_tls_greased;
+ };
+ 
+ 
+diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
+index 0f5bd3de8..1b85e378d 100644
+--- a/src/http/v2/ngx_http_v2.c
++++ b/src/http/v2/ngx_http_v2.c
+@@ -301,6 +301,8 @@ ngx_http_v2_init(ngx_event_t *rev)
+         ngx_add_timer(rev, cscf->client_header_timeout);
+     }
+ 
++    h2c->fp_fingerprinted = 0;
++
+     c->idle = 1;
+     ngx_reusable_connection(c, 0);
+ 
+@@ -1352,6 +1354,14 @@ ngx_http_v2_state_headers(ngx_http_v2_connection_t *h2c, u_char *pos,
+         }
+     }
+ 
++    if (!h2c->fp_fingerprinted && h2c->fp_priorities.len < 32) {
++        h2c->fp_priorities.data[h2c->fp_priorities.len] = (uint8_t)stream->node->id;
++        h2c->fp_priorities.data[h2c->fp_priorities.len+1] = (uint8_t)excl;
++        h2c->fp_priorities.data[h2c->fp_priorities.len+2] = (uint8_t)depend;
++        h2c->fp_priorities.data[h2c->fp_priorities.len+3] = (uint8_t)(weight-1);
++        h2c->fp_priorities.len += 4;
++    }
++
+     return ngx_http_v2_state_header_block(h2c, pos, end);
+ 
+ rst_stream:
+@@ -1775,6 +1785,9 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
+     }
+ 
+     if (header->name.data[0] == ':') {
++        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < 32 && header->name.len > 1)
++            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
++
+         rc = ngx_http_v2_pseudo_header(r, header);
+ 
+         if (rc == NGX_OK) {
+@@ -2194,6 +2207,12 @@ ngx_http_v2_state_settings_params(ngx_http_v2_connection_t *h2c, u_char *pos,
+         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, h2c->connection->log, 0,
+                        "http2 setting %ui:%ui", id, value);
+ 
++        if (!h2c->fp_fingerprinted && h2c->fp_settings.len < 32) {
++            h2c->fp_settings.data[h2c->fp_settings.len] = (uint8_t)id;
++            *(uint32_t*)(h2c->fp_settings.data + h2c->fp_settings.len + 1)  = (uint32_t)value;
++            h2c->fp_settings.len += 5;
++        }
++
+         switch (id) {
+ 
+         case NGX_HTTP_V2_INIT_WINDOW_SIZE_SETTING:
+@@ -2478,6 +2497,9 @@ ngx_http_v2_state_window_update(ngx_http_v2_connection_t *h2c, u_char *pos,
+     }
+ 
+     h2c->send_window += window;
++    if (!h2c->fp_fingerprinted) {
++        h2c->fp_windowupdate = window;
++    }
+ 
+     while (!ngx_queue_empty(&h2c->waiting)) {
+         q = ngx_queue_head(&h2c->waiting);
+diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
+index 6751b3026..60a68a0fd 100644
+--- a/src/http/v2/ngx_http_v2.h
++++ b/src/http/v2/ngx_http_v2.h
+@@ -17,6 +17,8 @@
+ 
+ #define NGX_HTTP_V2_STATE_BUFFER_SIZE    16
+ 
++#define NGX_FP_V2_BUFFER_SIZE            32
++
+ #define NGX_HTTP_V2_DEFAULT_FRAME_SIZE   (1 << 14)
+ #define NGX_HTTP_V2_MAX_FRAME_SIZE       ((1 << 24) - 1)
+ 
+@@ -121,6 +123,12 @@ typedef struct {
+ } ngx_http_v2_hpack_t;
+ 
+ 
++typedef struct {
++  u_char data[NGX_FP_V2_BUFFER_SIZE];
++  size_t len;
++} ngx_http_v2_fp_fixed_str_t;
++
++
+ struct ngx_http_v2_connection_s {
+     ngx_connection_t                *connection;
+     ngx_http_connection_t           *http_connection;
+@@ -168,6 +176,13 @@ struct ngx_http_v2_connection_s {
+     unsigned                         table_update:1;
+     unsigned                         blocked:1;
+     unsigned                         goaway:1;
++
++    unsigned                         fp_fingerprinted:1;
++    ngx_http_v2_fp_fixed_str_t       fp_settings,
++                                     fp_priorities,
++                                     fp_pseudoheaders;
++    ngx_uint_t                       fp_windowupdate;
++    ngx_str_t                        fp_str;
+ };
+ 
+ 
