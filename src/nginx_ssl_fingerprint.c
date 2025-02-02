@@ -5,6 +5,8 @@
 #include <ngx_http_v2.h>
 #include <ngx_md5.h>
 
+#include <nginx_ssl_fingerprint.h>
+
 #define IS_GREASE_CODE(code) (((code)&0x0f0f) == 0x0a0a && ((code)&0xff) == ((code)>>8))
 
 static inline
@@ -192,20 +194,16 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     size_t num = 0, i;
     uint16_t n, greased = 0;
 
-    if (c == NULL) {
-        return NGX_DECLINED;
-    }
-
-    if (c->ssl == NULL) {
+    if (c == NULL || c->ssl == NULL) {
         return NGX_DECLINED;
     }
 
     data = c->ssl->fp_ja3_data.data;
-    if (!data) {
+    if (data == NULL) {
         return NGX_DECLINED;
     }
 
-    if (c->ssl->fp_ja3_str.len > 0) {
+    if (c->ssl->fp_ja3_str.data != NULL) {
         return NGX_OK;
     }
 
@@ -214,7 +212,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     if (c->ssl->fp_ja3_str.data == NULL) {
         /** Else we break a data stream */
         c->ssl->fp_ja3_str.len = 0;
-        return NGX_DECLINED;
+        return NGX_DECLINED /** NGX_ERROR? */;
     }
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja3: alloc bytes: [%d]\n", c->ssl->fp_ja3_str.len);
@@ -300,16 +298,14 @@ int ngx_ssl_ja3(ngx_connection_t *c)
 
 int ngx_ssl_ja3_hash(ngx_connection_t *c)
 {
-    if (c == NULL) {
-        return NGX_DECLINED;
-    }
+    ngx_md5_t ctx;
+    u_char hash_buf[16];
 
-    if (c->ssl == NULL) {
+    if (c == NULL
+            || c->ssl == NULL
+            || c->ssl->fp_ja3_hash.len > 0)
+    {
         return NGX_DECLINED;
-    }
-
-    if (c->ssl->fp_ja3_hash.len > 0) {
-        return NGX_OK;
     }
 
     if (ngx_ssl_ja3(c) == NGX_DECLINED) {
@@ -326,9 +322,6 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja3_hash: alloc bytes: [%d]\n", c->ssl->fp_ja3_hash.len);
 
-    ngx_md5_t  ctx;
-    u_char hash_buf[16];
-
     ngx_md5_init(&ctx);
     ngx_md5_update(&ctx, c->ssl->fp_ja3_str.data, c->ssl->fp_ja3_str.len);
     ngx_md5_final(hash_buf, &ctx);
@@ -343,7 +336,7 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
     unsigned short n = 0;
     size_t i;
 
-    if (!h2c) {
+    if (c == NULL || h2c == NULL) {
         return NGX_DECLINED;
     }
 
