@@ -30,10 +30,10 @@ index 8e9b110bb3..3a2407b0e4 100644
  # define TLSEXT_TYPE_compress_certificate        27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 295b719ff2..429d710fa2 100644
+index 295b719ff2..3d92df0db1 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6641,6 +6641,101 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -6641,6 +6641,106 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -59,15 +59,18 @@ index 295b719ff2..429d710fa2 100644
 +    *(uint16_t *) ptr = (uint16_t) sc->clienthello->legacy_version;
 +    ptr += sizeof(uint16_t);
 +
++    /* ciphers */
 +    num = PACKET_remaining(&sc->clienthello->ciphersuites);
-+    *(uint16_t *) ptr = (uint16_t) num;
-+    ptr += sizeof(uint16_t);
++    if (ossl_likely(num > 0)) {
++        *(uint16_t *) ptr = (uint16_t) num;
++        ptr += sizeof(uint16_t);
 +
-+    if (ossl_unlikely(ptr + num > end))
-+        return 0;
++        if (ossl_unlikely(ptr + num > end))
++            return 0;
 +
-+    memcpy(ptr, PACKET_data(&sc->clienthello->ciphersuites), num);
-+    ptr += num;
++        memcpy(ptr, PACKET_data(&sc->clienthello->ciphersuites), num);
++        ptr += num;
++    }
 +
 +    /* extensions */
 +    num = 0;
@@ -99,9 +102,11 @@ index 295b719ff2..429d710fa2 100644
 +    }
 +
 +    ptr += num;
-+     /* groups */
-+    if (groups) {
-+        num = PACKET_remaining(groups);
++
++    /* groups */
++    num = PACKET_remaining(groups);
++    if (groups && num > 0) {
++
 +        if (ossl_unlikely((ptr + num + sizeof(uint16_t)) > end))
 +            return 0;
 +        memcpy(ptr, PACKET_data(groups), num);
@@ -115,8 +120,8 @@ index 295b719ff2..429d710fa2 100644
 +    }
 +
 +    /* formats */
-+    if (formats) {
-+        num = PACKET_remaining(formats);
++    num = PACKET_remaining(formats);
++    if (formats && num > 0) {
 +        if (ossl_unlikely((ptr + num + sizeof(uint8_t)) > end))
 +            return 0;
 +        memcpy(ptr, PACKET_data(formats), num);
