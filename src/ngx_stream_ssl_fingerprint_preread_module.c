@@ -1,3 +1,10 @@
+
+/*
+ * Please make sure that you have been incuded --with-streams before --add-module
+ * Else this module won't be compiled
+ */
+#if (NGX_STREAM_SSL)
+
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
@@ -162,3 +169,10 @@ ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
+#else
+#  pragma message "nginx-ssl-fingerprint: "
+#  pragma message "disabled for ngx_stream or ngx_ssl_stream. Please add --with-streams with ssl support, "
+#  pragma message "if you wish to enable it"
+#endif /** NGX_STREAM_SSL */
+
