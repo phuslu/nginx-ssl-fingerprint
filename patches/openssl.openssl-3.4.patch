@@ -30,10 +30,10 @@ index 8e9b110bb3..3a2407b0e4 100644
  # define TLSEXT_TYPE_compress_certificate        27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 295b719ff2..3d92df0db1 100644
+index 295b719ff2..7bfc9e2eb0 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6641,6 +6641,106 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -6641,6 +6641,107 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -83,6 +83,7 @@ index 295b719ff2..3d92df0db1 100644
 +    num = num * 2;
 +    if (ossl_unlikely((ptr + num + sizeof(uint16_t)) > end))
 +        return 0;
++
 +    *(uint16_t*) ptr = (uint16_t) num;
 +    ptr += sizeof(uint16_t);
 +
@@ -96,7 +97,7 @@ index 295b719ff2..3d92df0db1 100644
 +            if (ext->type == TLSEXT_TYPE_ec_point_formats)
 +                formats = &ext->data;
 +            if (ossl_likely(ext->received_order < data_size)) {
-+                *(uint16_t*)(ptr + ext->received_order) = (uint16_t) ext->type;
++                ((uint16_t*)(ptr))[ext->received_order] = (uint16_t) ext->type;
 +            }
 +        }
 +    }
