@@ -188,19 +188,33 @@ unsigned char *append_uint32(unsigned char* dst, uint32_t n)
     return dst;
 }
 
+
+/**
+ * Params:
+ *      c and c->ssl should be valid pointers
+ *
+ * Returns:
+ *      NGX_OK - c->ssl->fp_ja3_str is already set
+ *      NGX_ERROR - something went wrong
+ */
 int ngx_ssl_ja3(ngx_connection_t *c)
 {
     u_char *ptr = NULL, *data = NULL;
     size_t num = 0, i;
     uint16_t n, greased = 0;
 
-    if (c == NULL || c->ssl == NULL) {
-        return NGX_DECLINED;
-    }
-
     data = c->ssl->fp_ja3_data.data;
     if (data == NULL) {
-        return NGX_DECLINED;
+        /**
+         *  NOTE:
+         *  If we can't set it in OpenSSL,
+         *  then something defenetly something went wrong.
+         *  Typical production configuration has log level set to error,
+         *  this would help to debug this case, if it happened.
+         */
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja3: fp_ja_data == NULL");
+        return NGX_ERROR;
     }
 
     if (c->ssl->fp_ja3_str.data != NULL) {
@@ -212,7 +226,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     if (c->ssl->fp_ja3_str.data == NULL) {
         /** Else we break a data stream */
         c->ssl->fp_ja3_str.len = 0;
-        return NGX_DECLINED /** NGX_ERROR? */;
+        return NGX_ERROR;
     }
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja3: alloc bytes: [%d]\n", c->ssl->fp_ja3_str.len);
@@ -296,28 +310,33 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     return NGX_OK;
 }
 
+/**
+ * Params:
+ *      c and c->ssl should be valid pointers and tested before.
+ *
+ * Returns:
+ *      NGX_OK - c->ssl->fp_ja3_hash is alread set
+ *      NGX_ERROR - something went wrong
+ */
 int ngx_ssl_ja3_hash(ngx_connection_t *c)
 {
     ngx_md5_t ctx;
     u_char hash_buf[16];
 
-    if (c == NULL
-            || c->ssl == NULL
-            || c->ssl->fp_ja3_hash.len > 0)
-    {
-        return NGX_DECLINED;
+    if (c->ssl->fp_ja3_hash.len > 0) {
+        return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(c) == NGX_DECLINED) {
-        return NGX_DECLINED;
+    if (ngx_ssl_ja3(c) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     c->ssl->fp_ja3_hash.len = 32;
     c->ssl->fp_ja3_hash.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_hash.len);
     if (c->ssl->fp_ja3_hash.data == NULL) {
-        /** Else we break a stream */
+        /** Else we can break a stream */
         c->ssl->fp_ja3_hash.len = 0;
-        return NGX_DECLINED;
+        return NGX_ERROR;
     }
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja3_hash: alloc bytes: [%d]\n", c->ssl->fp_ja3_hash.len);
@@ -330,25 +349,32 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
     return NGX_OK;
 }
 
+/**
+ * Params:
+ *      c and h2c should be a valid pointers
+ *
+ * Returns:
+ *      NGX_OK -- h2c->fp_str is set
+ *      NGX_ERROR -- something went wrong
+ */
 int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
 {
     unsigned char *pstr = NULL;
     unsigned short n = 0;
     size_t i;
 
-    if (c == NULL || h2c == NULL) {
-        return NGX_DECLINED;
-    }
-
     if (h2c->fp_str.len > 0) {
         return NGX_OK;
     }
 
-    n = 4 + h2c->fp_settings.len * 3 + 10 + h2c->fp_priorities.len * 2 + h2c->fp_pseudoheaders.len * 2;
+    n = 4 + h2c->fp_settings.len * 3
+        + 10 + h2c->fp_priorities.len * 2
+        + h2c->fp_pseudoheaders.len * 2;
+
     h2c->fp_str.data = ngx_pnalloc(c->pool, n);
     if (h2c->fp_str.data == NULL) {
         /** Else we break a stream */
-        return NGX_DECLINED;
+        return NGX_ERROR;
     }
     pstr = h2c->fp_str.data;
 

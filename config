@@ -6,20 +6,21 @@
 ngx_addon_name=ngx_ssl_fingerprint_module
 
 CORE_LIBS="$CORE_LIBS"
-
 CORE_INCS="$CORE_INCS $ngx_addon_dir/src"
-
-STREAM_MODULES="ngx_stream_ssl_fingerprint_preread_module $STREAM_MODULES"
 
 HTTP_MODULES="$HTTP_MODULES ngx_http_ssl_fingerprint_module"
 
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
- $ngx_addon_dir/src/nginx_ssl_fingerprint.c \
- $ngx_addon_dir/src/ngx_stream_ssl_fingerprint_preread_module.c \
- $ngx_addon_dir/src/ngx_http_ssl_fingerprint_module.c
- "
+stream_module=""
 
-CFLAGS="$CFLAGS -I$ngx_addon_dir"
+if [ $STREAM_SSL_PREREAD = YES ]; then
+  STREAM_MODULES="ngx_stream_ssl_fingerprint_preread_module $STREAM_MODULES"
+  stream_module="$ngx_addon_dir/src/ngx_stream_ssl_fingerprint_preread_module.c"
+fi
+
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+  $ngx_addon_dir/src/nginx_ssl_fingerprint.c \
+  $ngx_addon_dir/src/ngx_http_ssl_fingerprint_module.c \
+  $stream_module"
 
 have=NGX_JA3_FINGERPRING_MODULE  . auto/have
 
