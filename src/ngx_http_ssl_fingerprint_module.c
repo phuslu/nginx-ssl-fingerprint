@@ -56,18 +56,20 @@ static ngx_int_t
 ngx_http_ssl_greased(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    /* For access.log's map $http2_fingerpring {}:
+    /* For access.log's map $http2_VAR {}:
      * if it's not found, then user could add a defined string */
     v->not_found = 1;
 
-    if (ngx_ssl_ja3(r->connection) != NGX_OK) {
+    if (r->connection->ssl == NULL) {
         return NGX_OK;
+    }
+
+    if (ngx_ssl_ja3(r->connection) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     v->len = 1;
     v->data = (u_char*) (r->connection->ssl->fp_tls_greased ? "1" : "0");
-    v->valid = 1;
-    v->no_cacheable = 1;
     v->not_found = 0;
 
     return NGX_OK;
@@ -77,19 +79,21 @@ static ngx_int_t
 ngx_http_ssl_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    /* For access.log's map $http2_fingerpring {}:
+    /* For access.log's map $VAR {}:
      * if it's not found, then user could add a defined string */
     v->not_found = 1;
 
-    if (ngx_ssl_ja3(r->connection) != NGX_OK) {
+    if (r->connection->ssl == NULL) {
         return NGX_OK;
+    }
+
+    if (ngx_ssl_ja3(r->connection) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     v->data = r->connection->ssl->fp_ja3_str.data;
     v->len = r->connection->ssl->fp_ja3_str.len;
-    v->no_cacheable = 1;
     v->not_found = 0;
-    v->valid = 1;
 
     return NGX_OK;
 }
@@ -98,9 +102,13 @@ static ngx_int_t
 ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    /* For access.log's map $http2_fingerpring {}:
+    /* For access.log's map $VAR {}:
      * if it's not found, then user could add a defined string */
     v->not_found = 1;
+
+    if (r->connection->ssl == NULL) {
+        return NGX_OK;
+    }
 
     if (ngx_ssl_ja3_hash(r->connection) != NGX_OK) {
         return NGX_OK;
@@ -108,9 +116,7 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
 
     v->data = r->connection->ssl->fp_ja3_hash.data;
     v->len = r->connection->ssl->fp_ja3_hash.len;
-    v->no_cacheable = 1;
     v->not_found = 0;
-    v->valid = 1;
 
     return NGX_OK;
 }
@@ -119,7 +125,7 @@ static ngx_int_t
 ngx_http_http2_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
-    /* For access.log's map $http2_fingerpring {}:
+    /* For access.log's map $VAR {}:
      * if it's not found, then user could add a defined string */
     v->not_found = 1;
 
@@ -130,14 +136,12 @@ ngx_http_http2_fingerprint(ngx_http_request_t *r,
     if (ngx_http2_fingerprint(r->connection, r->stream->connection)
             != NGX_OK)
     {
-        return NGX_OK;
+        return NGX_ERROR;
     }
 
     v->data = r->stream->connection->fp_str.data;
     v->len = r->stream->connection->fp_str.len;
-    v->valid = 1;
     v->not_found = 0;
-    v->no_cacheable = 1;
 
     return NGX_OK;
 }
