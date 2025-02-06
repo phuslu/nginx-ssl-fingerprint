@@ -12,9 +12,12 @@ HTTP_MODULES="$HTTP_MODULES ngx_http_ssl_fingerprint_module"
 
 stream_module=""
 
-if [ $STREAM_SSL_PREREAD = YES ]; then
+if [ $STREAM_SSL = YES ]; then
+  echo "[+] ngx_stream_ssl_fingerprint_preread_module included"
   STREAM_MODULES="ngx_stream_ssl_fingerprint_preread_module $STREAM_MODULES"
   stream_module="$ngx_addon_dir/src/ngx_stream_ssl_fingerprint_preread_module.c"
+else
+  echo "[-] ngx_stream_ssl_fingerprint_preread_module will no be compiled"
 fi
 
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
