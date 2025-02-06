@@ -1,9 +1,8 @@
 
 /*
- * Please make sure that you have been incuded --with-streams before --add-module
- * Else this module won't be compiled
+ * Please make sure that you have been incuded --with-streams_ssl_moduke
+ * before --add-module Else this module won't be compiled
  */
-#if (NGX_STREAM_SSL)
 
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -27,15 +26,15 @@ static ngx_stream_module_t  ngx_stream_ssl_fingerprint_preread_module_ctx = {
 ngx_module_t  ngx_stream_ssl_fingerprint_preread_module = {
     NGX_MODULE_V1,
     &ngx_stream_ssl_fingerprint_preread_module_ctx,      /* module context */
-    NULL,                                        /* module directives */
-    NGX_STREAM_MODULE,                           /* module type */
-    NULL,                                        /* init master */
-    NULL,                                        /* init module */
-    NULL,                                        /* init process */
-    NULL,                                        /* init thread */
-    NULL,                                        /* exit thread */
-    NULL,                                        /* exit process */
-    NULL,                                        /* exit master */
+    NULL,                                                /* module directives */
+    NGX_STREAM_MODULE,                                   /* module type */
+    NULL,                                                /* init master */
+    NULL,                                                /* init module */
+    NULL,                                                /* init process */
+    NULL,                                                /* init thread */
+    NULL,                                                /* exit thread */
+    NULL,                                                /* exit process */
+    NULL,                                                /* exit master */
     NGX_MODULE_V1_PADDING
 };
 
@@ -169,10 +168,4 @@ ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf)
 
     return NGX_OK;
 }
-
-#else
-#  pragma message "nginx-ssl-fingerprint: "
-#  pragma message "disabled for ngx_stream or ngx_ssl_stream. Please add --with-streams with ssl support, "
-#  pragma message "if you wish to enable it"
-#endif /** NGX_STREAM_SSL */
 

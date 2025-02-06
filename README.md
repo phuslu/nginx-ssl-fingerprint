@@ -8,14 +8,16 @@ A high performance nginx module for ja3 and http2 fingerprint.
 
 ### Support Matrix
 
-|            | OpenSSL_1_1_1 | openssl-3.0 | openssl-3.1 | openssl-3.2 |
+|            | OpenSSL_1_1_1 | openssl-3.0 | openssl-3.1 | openssl-3.2 | openssl-3.4 |
 | -----------| -------------------- | ----------- | ----------- | ----------- |
+-----|
 | nginx-1.20 | ✅ | ✅ | ✅ | ✅ |
 | nginx-1.21 | ✅ | ✅ | ✅ | ✅ |
 | nginx-1.22 | ✅ | ✅ | ✅ | ✅ |
 | nginx-1.23 | ✅ | ✅ | ✅ | ✅ |
 | nginx-1.24 | ✅ | ✅ | ✅ | ✅ |
 | nginx-1.25 | ✅ | ✅ | ✅ | ✅ |
+| nginx-1.27 | | | | | | ✅ |
 
 ## Configuration
 
