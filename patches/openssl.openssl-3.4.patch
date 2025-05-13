@@ -30,10 +30,10 @@ index 8e9b110bb3..3a2407b0e4 100644
  # define TLSEXT_TYPE_compress_certificate        27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 295b719ff2..7bfc9e2eb0 100644
+index 295b719ff2..c3df123253 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6641,6 +6641,107 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+@@ -6641,6 +6641,108 @@ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
      return 0;
  }
  
@@ -105,9 +105,9 @@ index 295b719ff2..7bfc9e2eb0 100644
 +    ptr += num;
 +
 +    /* groups */
-+    num = PACKET_remaining(groups);
-+    if (groups && num > 0) {
-+
++    if (groups
++        && (num = PACKET_remaining(groups)) > 0)
++    {
 +        if (ossl_unlikely((ptr + num + sizeof(uint16_t)) > end))
 +            return 0;
 +        memcpy(ptr, PACKET_data(groups), num);
@@ -121,8 +121,9 @@ index 295b719ff2..7bfc9e2eb0 100644
 +    }
 +
 +    /* formats */
-+    num = PACKET_remaining(formats);
-+    if (formats && num > 0) {
++    if (formats
++        && (num = PACKET_remaining(formats)) > 0)
++    {
 +        if (ossl_unlikely((ptr + num + sizeof(uint8_t)) > end))
 +            return 0;
 +        memcpy(ptr, PACKET_data(formats), num);
