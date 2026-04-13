@@ -221,7 +221,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
         return NGX_OK;
     }
 
-    c->ssl->fp_ja3_str.len = c->ssl->fp_ja3_data.len * 3;
+    c->ssl->fp_ja3_str.len = c->ssl->fp_ja3_data.len * 4;
     c->ssl->fp_ja3_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_str.len);
     if (c->ssl->fp_ja3_str.data == NULL) {
         /** Else we break a data stream */
@@ -368,7 +368,7 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
     }
 
     n = 4 + h2c->fp_settings.len * 3
-        + 10 + h2c->fp_priorities.len * 2
+        + 10 + h2c->fp_priorities.len * 4
         + h2c->fp_pseudoheaders.len * 2;
 
     h2c->fp_str.data = ngx_pnalloc(c->pool, n);
