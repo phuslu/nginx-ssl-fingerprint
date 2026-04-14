@@ -273,7 +273,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
 
     /* groups */
     num = *(uint16_t*)data;
-    for (i = 2; i < num; i += 2) {
+    for (i = 2; i + 1 < num; i += 2) {
         n = ((uint16_t)data[i]) << 8 | ((uint16_t)data[i+1]);
         if (!IS_GREASE_CODE(n)) {
             ptr = append_uint16(ptr, n);
