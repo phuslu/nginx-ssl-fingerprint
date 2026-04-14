@@ -42,6 +42,8 @@ static ngx_int_t
 ngx_stream_ssl_greased(ngx_stream_session_t *s,
                  ngx_stream_variable_value_t *v, uintptr_t data)
 {
+    v->not_found = 1;
+
     if (s->connection == NULL)
     {
         return NGX_OK;
@@ -52,9 +54,9 @@ ngx_stream_ssl_greased(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(s->connection) == NGX_DECLINED)
+    if (ngx_ssl_ja3(s->connection) != NGX_OK)
     {
-        return NGX_ERROR;
+        return NGX_OK;
     }
 
     v->len = 1;
@@ -71,6 +73,8 @@ static ngx_int_t
 ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
                  ngx_stream_variable_value_t *v, uintptr_t data)
 {
+    v->not_found = 1;
+
     if (s->connection == NULL)
     {
         return NGX_OK;
@@ -81,9 +85,9 @@ ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(s->connection) == NGX_DECLINED)
+    if (ngx_ssl_ja3(s->connection) != NGX_OK)
     {
-        return NGX_ERROR;
+        return NGX_OK;
     }
 
     v->data = s->connection->ssl->fp_ja3_str.data;
@@ -99,6 +103,8 @@ static ngx_int_t
 ngx_stream_ssl_fingerprint_hash(ngx_stream_session_t *s,
                  ngx_stream_variable_value_t *v, uintptr_t data)
 {
+    v->not_found = 1;
+
     if (s->connection == NULL)
     {
         return NGX_OK;
@@ -109,9 +115,9 @@ ngx_stream_ssl_fingerprint_hash(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3_hash(s->connection) == NGX_DECLINED)
+    if (ngx_ssl_ja3_hash(s->connection) != NGX_OK)
     {
-        return NGX_ERROR;
+        return NGX_OK;
     }
 
     v->data = s->connection->ssl->fp_ja3_hash.data;
