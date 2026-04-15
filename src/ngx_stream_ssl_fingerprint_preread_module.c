@@ -63,7 +63,6 @@ ngx_stream_ssl_greased(ngx_stream_session_t *s,
     v->data = (u_char*)(s->connection->ssl->fp_tls_greased ? "1" : "0");
 
     v->valid = 1;
-    v->no_cacheable = 1;
     v->not_found = 0;
 
     return NGX_OK;
@@ -93,7 +92,6 @@ ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
     v->data = s->connection->ssl->fp_ja3_str.data;
     v->len = s->connection->ssl->fp_ja3_str.len;
     v->valid = 1;
-    v->no_cacheable = 1;
     v->not_found = 0;
 
     return NGX_OK;
@@ -123,7 +121,6 @@ ngx_stream_ssl_fingerprint_hash(ngx_stream_session_t *s,
     v->data = s->connection->ssl->fp_ja3_hash.data;
     v->len = s->connection->ssl->fp_ja3_hash.len;
     v->valid = 1;
-    v->no_cacheable = 1;
     v->not_found = 0;
 
     return NGX_OK;
