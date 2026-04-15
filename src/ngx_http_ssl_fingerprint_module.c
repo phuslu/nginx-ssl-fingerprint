@@ -42,13 +42,13 @@ ngx_module_t ngx_http_ssl_fingerprint_module = {
 
 static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_greased"), NULL, ngx_http_ssl_greased,
-     0, NGX_HTTP_VAR_NOCACHEABLE, 0},
+     0, 0, 0},
     {ngx_string("http_ssl_ja3"), NULL, ngx_http_ssl_fingerprint,
-     0, NGX_HTTP_VAR_NOCACHEABLE, 0},
+     0, 0, 0},
     {ngx_string("http_ssl_ja3_hash"), NULL, ngx_http_ssl_fingerprint_hash,
-     0, NGX_HTTP_VAR_NOCACHEABLE, 0},
+     0, 0, 0},
     {ngx_string("http2_fingerprint"), NULL, ngx_http_http2_fingerprint,
-     0, NGX_HTTP_VAR_NOCACHEABLE, 0},
+     0, 0, 0},
     ngx_http_null_variable
 };
 
@@ -71,6 +71,7 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
     v->len = 1;
     v->data = (u_char*) (r->connection->ssl->fp_tls_greased ? "1" : "0");
     v->not_found = 0;
+    v->valid = 1;
 
     return NGX_OK;
 }
@@ -94,6 +95,7 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
     v->data = r->connection->ssl->fp_ja3_str.data;
     v->len = r->connection->ssl->fp_ja3_str.len;
     v->not_found = 0;
+    v->valid = 1;
 
     return NGX_OK;
 }
@@ -117,6 +119,7 @@ ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
     v->data = r->connection->ssl->fp_ja3_hash.data;
     v->len = r->connection->ssl->fp_ja3_hash.len;
     v->not_found = 0;
+    v->valid = 1;
 
     return NGX_OK;
 }
@@ -142,6 +145,7 @@ ngx_http_http2_fingerprint(ngx_http_request_t *r,
     v->data = r->stream->connection->fp_str.data;
     v->len = r->stream->connection->fp_str.len;
     v->not_found = 0;
+    v->valid = 1;
 
     return NGX_OK;
 }
