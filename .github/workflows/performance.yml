@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        openssl: [openssl-3.6.2]
+        openssl: [openssl-4.0.0]
         nginx: [release-1.29.2]
     steps:
       - name: Install packages
