@@ -74,7 +74,7 @@ $ git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
 # Patch
 
 $ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl-3.4.patch
-$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-1.29.2.patch
+$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/release-1.29.2.patch
 
 # Build
 
