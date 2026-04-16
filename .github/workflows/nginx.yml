@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        openssl: [openssl-3.2, openssl-3.1, openssl-3.0]
-        nginx: [release-1.25.3, release-1.24.0, release-1.23.4, release-1.22.1, release-1.21.6, release-1.20.2]
+        openssl: [openssl-3.4]
+        nginx: [release-1.29.2]
     steps:
       - name: Dependency
         run: |
@@ -26,8 +26,8 @@ jobs:
           git clone -b master https://github.com/${GITHUB_REPOSITORY}
       - name: Patch
         run: |
-          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.${{ matrix.openssl }}.patch
-          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-$(echo ${{ matrix.nginx }} | cut -b9-12).patch
+          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/${{ matrix.openssl }}.patch
+          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/${{ matrix.nginx }}.patch
       - name: Build
         run: |
           cd nginx

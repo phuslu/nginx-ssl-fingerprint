@@ -8,15 +8,10 @@ A high performance nginx module for ja3 and http2 fingerprint.
 
 ### Support Matrix
 
-|            | openssl-3.0 | openssl-3.1 | openssl-3.2 | openssl-3.4 |
-| -----------| -------------------- | ----------- | ----------- | ----------- | -----------
-| nginx-1.20 | ✅ | ✅ | ✅ | |
-| nginx-1.21 | ✅ | ✅ | ✅ | |
-| nginx-1.22 | ✅ | ✅ | ✅ | |
-| nginx-1.23 | ✅ | ✅ | ✅ | |
-| nginx-1.24 | ✅ | ✅ | ✅ | |
-| nginx-1.25 | ✅ | ✅ | ✅ | |
-| nginx-1.27 |    |     |    | ✅ |
+|            | openssl-3.4 | openssl-3.5 | openssl-4.0 |
+| -----------| ----------- | ----------- | ----------- |
+| nginx-1.29 |    ✅      |              |              |
+| nginx-1.30 |             |             |             |
 
 ## Configuration
 
@@ -72,14 +67,14 @@ stream {
 
 # Clone
 
-$ git clone -b openssl-3.2 --depth=1 https://github.com/openssl/openssl
-$ git clone -b release-1.25.3 --depth=1 https://github.com/nginx/nginx
+$ git clone -b openssl-3.4 --depth=1 https://github.com/openssl/openssl
+$ git clone -b release-1.29.2 --depth=1 https://github.com/nginx/nginx
 $ git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
 
 # Patch
 
-$ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl.openssl-3.2.patch
-$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-1.25.patch
+$ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl-3.4.patch
+$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/nginx-1.29.2.patch
 
 # Build
 
