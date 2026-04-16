@@ -1,8 +1,8 @@
 diff --git a/include/openssl/ssl.h.in b/include/openssl/ssl.h.in
-index e08d971..f2ee1e7 100644
+index bdcc685..02a67d1 100644
 --- a/include/openssl/ssl.h.in
 +++ b/include/openssl/ssl.h.in
-@@ -1911,6 +1911,8 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
+@@ -1926,6 +1926,8 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
  size_t SSL_client_hello_get0_compression_methods(SSL *s,
      const unsigned char **out);
  int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen);
@@ -30,10 +30,10 @@ index 931ee79..a2d6ba3 100644
  #define TLSEXT_TYPE_compress_certificate 27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 41c0e23..958ae1f 100644
+index 05b0209..ba0f574 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6597,6 +6597,108 @@ err:
+@@ -6845,6 +6845,108 @@ err:
      return 0;
  }
  
@@ -143,10 +143,10 @@ index 41c0e23..958ae1f 100644
  {
      RAW_EXTENSION *ext;
 diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index f868cd4..73116c3 100644
+index 8fc8b64..f67fbd6 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
-@@ -698,6 +698,9 @@ typedef enum tlsext_index_en {
+@@ -686,6 +686,9 @@ typedef enum tlsext_index_en {
      TLSEXT_IDX_compress_certificate,
      TLSEXT_IDX_early_data,
      TLSEXT_IDX_certificate_authorities,
@@ -157,10 +157,10 @@ index f868cd4..73116c3 100644
      TLSEXT_IDX_psk,
      /* Dummy index - must always be the last entry */
 diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 5772ad4..01c1793 100644
+index 2de540f..02c36a6 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
-@@ -367,6 +367,21 @@ static const EXTENSION_DEFINITION ext_defs[] = {
+@@ -368,6 +368,21 @@ static const EXTENSION_DEFINITION ext_defs[] = {
          tls_construct_certificate_authorities,
          NULL,
      },
