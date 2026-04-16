@@ -8,7 +8,7 @@ A high performance nginx module for ja3 and http2 fingerprint.
 
 ### Support Matrix
 
-|            | openssl-3.4 | openssl-3.5 | openssl-4.0 |
+|            | openssl-3.5 | openssl-3.6 | openssl-4.0 |
 | -----------| ----------- | ----------- | ----------- |
 | nginx-1.29 |    ✅      |              |              |
 | nginx-1.30 |             |             |             |
@@ -67,7 +67,7 @@ stream {
 
 # Clone
 
-$ git clone -b openssl-3.4 --depth=1 https://github.com/openssl/openssl
+$ git clone -b openssl-3.5.6 --depth=1 https://github.com/openssl/openssl
 $ git clone -b release-1.29.2 --depth=1 https://github.com/nginx/nginx
 $ git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
 
