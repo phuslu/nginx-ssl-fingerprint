@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        openssl: [openssl-3.5.6, openssl-3.6.2, openssl-4.0.0]
+        openssl: [openssl-3.5.6, openssl-3.6.2]
         nginx: [release-1.29.2]
     steps:
       - name: Dependency
