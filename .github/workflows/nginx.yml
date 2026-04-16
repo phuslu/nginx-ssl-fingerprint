@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         openssl: [openssl-3.5.6, openssl-3.6.2]
-        nginx: [release-1.29.2]
+        nginx: [release-1.29.8]
     steps:
       - name: Dependency
         run: |

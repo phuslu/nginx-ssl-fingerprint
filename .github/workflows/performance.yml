@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         openssl: [openssl-3.6.2]
-        nginx: [release-1.29.2]
+        nginx: [release-1.29.8]
     steps:
       - name: Install packages
         run: sudo apt update -y && sudo apt-get install -y wrk  libpcre3 libpcre3-dev
