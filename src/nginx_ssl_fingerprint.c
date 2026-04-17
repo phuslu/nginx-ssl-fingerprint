@@ -188,17 +188,6 @@ unsigned char *append_uint32(unsigned char* dst, uint32_t n)
     return dst;
 }
 
-static
-ngx_int_t compare_uint16(const void *one, const void *two)
-{
-    uint16_t  first, second;
-
-    first = *(const uint16_t *) one;
-    second = *(const uint16_t *) two;
-
-    return (first > second) - (first < second);
-}
-
 
 /**
  * Params:
@@ -373,8 +362,8 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     u_char      *ptr, *data, *end, *hash_input, *hash_ptr;
     size_t       num, i, ciphers_len, exts_len, groups_len, formats_len,
                  alpn_len, sigalgs_len, cipher_count, ext_count,
-                 ext_count_total, hash_input_len;
-    uint16_t     n, version_code, ciphers[128], exts[128], sigalgs[128];
+                 ext_count_total, hash_input_len, j;
+    uint16_t     n, value, version_code, ciphers[128], exts[128], sigalgs[128];
     unsigned char alpn[2], digest[32];
     static const unsigned char  hex[] = "0123456789abcdef";
     ngx_flag_t   has_sni;
@@ -632,7 +621,13 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
         ptr += ngx_ssl_ja4_hex_hash_len;
     } else {
-        ngx_sort(ciphers, cipher_count, sizeof(uint16_t), compare_uint16);
+        for (i = 1; i < cipher_count; i++) {
+            value = ciphers[i];
+            for (j = i; j > 0 && ciphers[j - 1] > value; j--) {
+                ciphers[j] = ciphers[j - 1];
+            }
+            ciphers[j] = value;
+        }
 
         hash_ptr = hash_input;
         for (i = 0; i < cipher_count; i++) {
@@ -653,8 +648,21 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
         ptr += ngx_ssl_ja4_hex_hash_len;
     } else {
-        ngx_sort(exts, ext_count, sizeof(uint16_t), compare_uint16);
-        ngx_sort(sigalgs, num, sizeof(uint16_t), compare_uint16);
+        for (i = 1; i < ext_count; i++) {
+            value = exts[i];
+            for (j = i; j > 0 && exts[j - 1] > value; j--) {
+                exts[j] = exts[j - 1];
+            }
+            exts[j] = value;
+        }
+
+        for (i = 1; i < num; i++) {
+            value = sigalgs[i];
+            for (j = i; j > 0 && sigalgs[j - 1] > value; j--) {
+                sigalgs[j] = sigalgs[j - 1];
+            }
+            sigalgs[j] = value;
+        }
 
         hash_ptr = hash_input;
         for (i = 0; i < ext_count; i++) {
