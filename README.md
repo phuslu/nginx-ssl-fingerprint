@@ -1,9 +1,9 @@
 # nginx-ssl-fingerprint
 
-A high performance nginx module for ja3 and http2 fingerprint.
+A high performance nginx module for ja3 ja4 and http2 fingerprint.
 
 ## Patches
- - [nginx - save ja3/http2 fingerprint](patches)
+ - [nginx - save ja3/ja4/http2 fingerprint](patches)
  - [openssl - save clienthello data](patches)
 
 ### Support Matrix
@@ -22,6 +22,7 @@ A high performance nginx module for ja3 and http2 fingerprint.
 | http_ssl_greased  | 0             | TLS greased flag.        |
 | http_ssl_ja3      | NULL          | The ja3 fingerprint.     |
 | http_ssl_ja3_hash | NULL          | The ja3 fingerprint hash.|
+| http_ssl_ja4      | NULL          | The ja4 fingerprint.     |
 | http2_fingerprint | NULL          | The http2 fingerprint.   |
 
 #### Example
@@ -29,11 +30,12 @@ A high performance nginx module for ja3 and http2 fingerprint.
 ```nginx
 http {
     server {
-        listen                 127.0.0.1:4433 ssl http2;
+        listen                 127.0.0.1:4433 ssl;
+        http2                  on;
         ssl_certificate        cert.pem;
         ssl_certificate_key    priv.key;
         error_log              /dev/stderr debug;
-        return                 200 "ja3: $http_ssl_ja3\nh2fp: $http2_fingerprint";
+        return                 200 "ja3: $http_ssl_ja3\nja4: $http_ssl_ja4\nh2fp: $http2_fingerprint";
     }
 }
 ```
@@ -45,6 +47,7 @@ http {
 | stream_ssl_greased  | 0             | TLS greased flag.        |
 | stream_ssl_ja3      | NULL          | The ja3 fingerprint.     |
 | stream_ssl_ja3_hash | NULL          | The ja3 fingerprint hash.|
+| stream_ssl_ja4      | NULL          | The ja4 fingerprint.     |
 
 #### Example
 
@@ -55,7 +58,7 @@ stream {
         ssl_certificate        cert.pem;
         ssl_certificate_key    priv.key;
         error_log              /dev/stderr debug;
-        return                 "ja3: $stream_ssl_ja3\n";
+        return                 "ja4: $stream_ssl_ja4\n";
     }
 }
 ```
