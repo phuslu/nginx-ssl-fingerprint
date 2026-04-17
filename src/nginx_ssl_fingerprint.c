@@ -4,6 +4,7 @@
 #include <ngx_log.h>
 #include <ngx_http_v2.h>
 #include <ngx_md5.h>
+#include <openssl/sha.h>
 
 #include <nginx_ssl_fingerprint.h>
 
@@ -358,15 +359,13 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
  */
 int ngx_ssl_ja4(ngx_connection_t *c)
 {
-    u_char        *ptr, *data, *end, *hash_ptr;
+    u_char        *ptr, *data, *end, *hash_ptr, *alpn;
     size_t         num, i, j, ciphers_len, exts_len, groups_len, formats_len,
                    sigalgs_len, cipher_count, ext_count, ext_count_total;
     uint16_t       n, version_code, ciphers[128], exts[128], sigalgs[128];
-    unsigned char  alpn[2] = { '0', '0' }, digest[32], hash_input[1280];
+    unsigned char  hash_input[1280], digest[SHA256_DIGEST_LENGTH];
     static const unsigned char  hex[] = "0123456789abcdef";
     ngx_flag_t    has_sni;
-    unsigned char *SHA256(const unsigned char *d, size_t n,
-                          unsigned char *md);
     enum {
         ngx_ssl_ja4_max_fields = 128,
         ngx_ssl_ja4_str_max_len = 38,
@@ -558,9 +557,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
                 "ngx_ssl_ja4: invalid alpn block");
         return NGX_ERROR;
     }
-
-    alpn[0] = data[1];
-    alpn[1] = data[2];
+    alpn = data + 1;
 
     c->ssl->fp_ja4_str.len = ngx_ssl_ja4_str_max_len;
     c->ssl->fp_ja4_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja4_str.len);
