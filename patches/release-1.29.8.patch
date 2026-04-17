@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 99ec654..d2bb287 100644
+index 99ec654..4ce3c05 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -14,6 +14,7 @@
@@ -10,57 +10,55 @@ index 99ec654..d2bb287 100644
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
  
  
-@@ -2196,6 +2197,40 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
-     return NGX_OK;
- }
+@@ -2011,6 +2012,38 @@ ngx_ssl_set_client_hello_callback(ngx_ssl_t *ssl, ngx_ssl_client_hello_arg *cb)
  
-+int
-+ngx_ssl_client_hello_ja3_cb(SSL *s, int *al, void *arg)
+ #ifdef SSL_CLIENT_HELLO_SUCCESS
+ 
++static void
++ngx_ssl_client_hello_ja3_cb(SSL *ssl)
 +{
-+    ngx_connection_t  *c = arg;
++    ngx_connection_t  *c;
 +    ngx_str_t         *ja;
 +
-+    if (c == NULL) {
-+        return SSL_CLIENT_HELLO_SUCCESS;
-+    }
++    c = ngx_ssl_get_connection(ssl);
 +
-+    if (c->ssl == NULL) {
-+        return SSL_CLIENT_HELLO_SUCCESS;
++    if (c == NULL || c->ssl == NULL) {
++        return;
 +    }
 +
 +    ja = &c->ssl->fp_ja3_data;
 +    ja->len = NGX_SSL_JA3_BUFFER_SIZE;
 +
-+    ja->data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_data.len);
++    ja->data = ngx_pnalloc(c->pool, NGX_SSL_JA3_BUFFER_SIZE);
 +    if (ja->data == NULL) {
 +        ja->len = 0;
-+        return SSL_CLIENT_HELLO_SUCCESS;
++        return;
 +    }
 +
-+    ja->len = SSL_client_hello_get_ja3_data(c->ssl->connection, ja->data,
-+            NGX_SSL_JA3_BUFFER_SIZE);
++    ja->len = SSL_client_hello_get_ja3_data(ssl, ja->data,
++                                            NGX_SSL_JA3_BUFFER_SIZE);
 +    if (ja->len == 0) {
 +        ngx_log_error(NGX_LOG_WARN, c->log, 0, "SSL_client_hello_get_ja3_data "
 +                "seems the buffer size is less that number of fileds; "
 +                "for this SSL connection can't get a ja3 hash string");
 +        ja->data = NULL;
 +    }
-+
-+    return SSL_CLIENT_HELLO_SUCCESS;
 +}
- 
- ngx_int_t
- ngx_ssl_handshake(ngx_connection_t *c)
-@@ -2216,6 +2251,9 @@ ngx_ssl_handshake(ngx_connection_t *c)
- 
-     ngx_ssl_clear_error(c->log);
- 
-+    (void) SSL_CTX_set_client_hello_cb(c->ssl->session_ctx,
-+                                ngx_ssl_client_hello_ja3_cb, c);
 +
-     n = SSL_do_handshake(c->ssl->connection);
++
+ int
+ ngx_ssl_client_hello_callback(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
+ {
+@@ -2025,6 +2058,9 @@ ngx_ssl_client_hello_callback(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
+     cb = SSL_CTX_get_ex_data(c->ssl->session_ctx,
+                              ngx_ssl_client_hello_arg_index);
  
-     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
++    /* capture JA3 fingerprint data before SNI processing */
++    ngx_ssl_client_hello_ja3_cb(ssl_conn);
++
+     if (SSL_client_hello_get0_ext(ssl_conn, TLSEXT_TYPE_server_name,
+                                   (const unsigned char **) &p, &len)
+         == 0)
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
 index 79ae395..53828fe 100644
 --- a/src/event/ngx_event_openssl.h
@@ -78,7 +76,7 @@ index 79ae395..53828fe 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index efe2290..127edaa 100644
+index efe2290..2891bc6 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -307,6 +307,8 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -94,7 +92,7 @@ index efe2290..127edaa 100644
          }
      }
  
-+    if (!h2c->fp_fingerprinted && h2c->fp_priorities.len < 32) {
++    if (!h2c->fp_fingerprinted && h2c->fp_priorities.len + 4 <= NGX_FP_V2_BUFFER_SIZE) {
 +        h2c->fp_priorities.data[h2c->fp_priorities.len] = (uint8_t)stream->node->id;
 +        h2c->fp_priorities.data[h2c->fp_priorities.len+1] = (uint8_t)excl;
 +        h2c->fp_priorities.data[h2c->fp_priorities.len+2] = (uint8_t)depend;
@@ -109,7 +107,7 @@ index efe2290..127edaa 100644
      }
  
      if (header->name.data[0] == ':') {
-+        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < 32 && header->name.len > 1)
++        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < NGX_FP_V2_BUFFER_SIZE && header->name.len > 1)
 +            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
 +
          rc = ngx_http_v2_pseudo_header(r, header);
@@ -119,7 +117,7 @@ index efe2290..127edaa 100644
          ngx_log_debug2(NGX_LOG_DEBUG_HTTP, h2c->connection->log, 0,
                         "http2 setting %ui:%ui", id, value);
  
-+        if (!h2c->fp_fingerprinted && h2c->fp_settings.len < 32) {
++        if (!h2c->fp_fingerprinted && h2c->fp_settings.len + 5 <= NGX_FP_V2_BUFFER_SIZE) {
 +            h2c->fp_settings.data[h2c->fp_settings.len] = (uint8_t)id;
 +            *(uint32_t*)(h2c->fp_settings.data + h2c->fp_settings.len + 1)  = (uint32_t)value;
 +            h2c->fp_settings.len += 5;
@@ -176,3 +174,5 @@ index 9605c8a..026f3c7 100644
 +    ngx_uint_t                       fp_windowupdate;
 +    ngx_str_t                        fp_str;
  };
+ 
+ 
