@@ -12,6 +12,8 @@ static ngx_int_t ngx_http_ssl_ja3(ngx_http_request_t *r,
                             ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_ssl_ja3_hash(ngx_http_request_t *r,
                              ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_ssl_ja4(ngx_http_request_t *r,
+                            ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_http2_fingerprint(ngx_http_request_t *r,
                             ngx_http_variable_value_t *v, uintptr_t data);
 
@@ -46,6 +48,8 @@ static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_ja3"), NULL, ngx_http_ssl_ja3,
      0, 0, 0},
     {ngx_string("http_ssl_ja3_hash"), NULL, ngx_http_ssl_ja3_hash,
+     0, 0, 0},
+    {ngx_string("http_ssl_ja4"), NULL, ngx_http_ssl_ja4,
      0, 0, 0},
     {ngx_string("http2_fingerprint"), NULL, ngx_http_http2_fingerprint,
      0, 0, 0},
@@ -118,6 +122,30 @@ ngx_http_ssl_ja3_hash(ngx_http_request_t *r,
 
     v->data = r->connection->ssl->fp_ja3_hash.data;
     v->len = r->connection->ssl->fp_ja3_hash.len;
+    v->not_found = 0;
+    v->valid = 1;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_ssl_ja4(ngx_http_request_t *r,
+                 ngx_http_variable_value_t *v, uintptr_t data)
+{
+    /* For access.log's map $VAR {}:
+     * if it's not found, then user could add a defined string */
+    v->not_found = 1;
+
+    if (r->connection->ssl == NULL) {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja4(r->connection) != NGX_OK) {
+        return NGX_OK;
+    }
+
+    v->data = r->connection->ssl->fp_ja4_str.data;
+    v->len = r->connection->ssl->fp_ja4_str.len;
     v->not_found = 0;
     v->valid = 1;
 

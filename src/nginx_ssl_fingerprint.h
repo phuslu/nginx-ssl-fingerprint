@@ -13,6 +13,7 @@
 
 int ngx_ssl_ja3(ngx_connection_t *c);
 int ngx_ssl_ja3_hash(ngx_connection_t *c);
+int ngx_ssl_ja4(ngx_connection_t *c);
 int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c);
 
 #endif /** NGINX_SSL_FINGERPRINT_H_ */

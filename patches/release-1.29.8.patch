@@ -60,10 +60,10 @@ index 99ec654..4ce3c05 100644
                                    (const unsigned char **) &p, &len)
          == 0)
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 79ae395..53828fe 100644
+index 79ae395..bc73ef6 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
-@@ -149,6 +149,11 @@ struct ngx_ssl_connection_s {
+@@ -149,6 +149,12 @@ struct ngx_ssl_connection_s {
      unsigned                    early_preread:1;
      unsigned                    write_blocked:1;
      unsigned                    sni_accepted:1;
@@ -71,6 +71,7 @@ index 79ae395..53828fe 100644
 +    ngx_str_t                   fp_ja3_data;
 +    ngx_str_t                   fp_ja3_str;
 +    ngx_str_t                   fp_ja3_hash;
++    ngx_str_t                   fp_ja4_str;
 +    uint16_t                    fp_tls_greased;
  };
  

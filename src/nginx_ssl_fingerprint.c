@@ -351,6 +351,93 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
 
 /**
  * Params:
+ *      c and c->ssl should be valid pointers
+ *
+ * Returns:
+ *      NGX_OK - c->ssl->fp_ja4_str is already set
+ *      NGX_ERROR - something went wrong
+ */
+int ngx_ssl_ja4(ngx_connection_t *c)
+{
+    u_char *ptr = NULL, *data = NULL;
+
+    data = c->ssl->fp_ja3_data.data;
+    if (data == NULL) {
+        /**
+         *  NOTE:
+         *  If we can't set it in OpenSSL,
+         *  then something defenetly something went wrong.
+         *  Typical production configuration has log level set to error,
+         *  this would help to debug this case, if it happened.
+         */
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: fp_ja_data == NULL");
+        return NGX_ERROR;
+    }
+
+    if (c->ssl->fp_ja4_str.data != NULL) {
+        return NGX_OK;
+    }
+
+    c->ssl->fp_ja4_str.len = 36;
+    c->ssl->fp_ja4_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja4_str.len);
+    if (c->ssl->fp_ja4_str.data == NULL) {
+        /** Else we break a data stream */
+        c->ssl->fp_ja4_str.len = 0;
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja4: alloc bytes: [%d]\n", c->ssl->fp_ja4_str.len);
+
+    /* placeholder */
+    ptr = c->ssl->fp_ja4_str.data;
+    *ptr++ = 't';
+    *ptr++ = '1';
+    *ptr++ = '3';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '_';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '_';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+    *ptr++ = '0';
+
+    /* end */
+    c->ssl->fp_ja4_str.len = ptr - c->ssl->fp_ja4_str.data;
+
+    ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja4: ja4 str=[%V], len=[%d]", &c->ssl->fp_ja4_str, c->ssl->fp_ja4_str.len);
+
+    return NGX_OK;
+}
+
+/**
+ * Params:
  *      c and h2c should be a valid pointers
  *
  * Returns:

@@ -11,6 +11,7 @@
 
 extern int ngx_ssl_ja3(ngx_connection_t *c);
 extern int ngx_ssl_ja3_hash(ngx_connection_t *c);
+extern int ngx_ssl_ja4(ngx_connection_t *c);
 
 static ngx_int_t ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf);
 
@@ -126,6 +127,35 @@ ngx_stream_ssl_ja3_hash(ngx_stream_session_t *s,
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_stream_ssl_ja4(ngx_stream_session_t *s,
+                 ngx_stream_variable_value_t *v, uintptr_t data)
+{
+    v->not_found = 1;
+
+    if (s->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (s->connection->ssl == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja4(s->connection) != NGX_OK)
+    {
+        return NGX_OK;
+    }
+
+    v->data = s->connection->ssl->fp_ja4_str.data;
+    v->len = s->connection->ssl->fp_ja4_str.len;
+    v->valid = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
 static ngx_stream_variable_t  ngx_stream_ssl_fingerprint_variables_list[] = {
 
     {   ngx_string("stream_ssl_greased"),
@@ -143,6 +173,12 @@ static ngx_stream_variable_t  ngx_stream_ssl_fingerprint_variables_list[] = {
     {   ngx_string("stream_ssl_ja3_hash"),
         NULL,
         ngx_stream_ssl_ja3_hash,
+        0, 0, 0
+    },
+
+    {   ngx_string("stream_ssl_ja4"),
+        NULL,
+        ngx_stream_ssl_ja4,
         0, 0, 0
     },
 
