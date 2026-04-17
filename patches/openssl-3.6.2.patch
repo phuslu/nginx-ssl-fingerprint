@@ -6,7 +6,7 @@ index 9ff923b..245aeae 100644
  size_t SSL_client_hello_get0_compression_methods(SSL *s,
      const unsigned char **out);
  int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen);
-+size_t SSL_client_hello_get_ja3_data(SSL *s, unsigned char *data,
++size_t SSL_client_hello_get_ja_data(SSL *s, unsigned char *data,
 +                                     size_t data_size);
  int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts,
      size_t *num_exts);
@@ -37,7 +37,7 @@ index 4016fde..b43a870 100644
      return 0;
  }
  
-+size_t SSL_client_hello_get_ja3_data(SSL *s, unsigned char *data,
++size_t SSL_client_hello_get_ja_data(SSL *s, unsigned char *data,
 +        size_t data_size)
 +{
 +    RAW_EXTENSION *ext;

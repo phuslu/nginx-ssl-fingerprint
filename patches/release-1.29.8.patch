@@ -35,10 +35,10 @@ index 99ec654..4ce3c05 100644
 +        return;
 +    }
 +
-+    ja->len = SSL_client_hello_get_ja3_data(ssl, ja->data,
++    ja->len = SSL_client_hello_get_ja_data(ssl, ja->data,
 +                                            NGX_SSL_JA3_BUFFER_SIZE);
 +    if (ja->len == 0) {
-+        ngx_log_error(NGX_LOG_WARN, c->log, 0, "SSL_client_hello_get_ja3_data "
++        ngx_log_error(NGX_LOG_WARN, c->log, 0, "SSL_client_hello_get_ja_data "
 +                "seems the buffer size is less that number of fileds; "
 +                "for this SSL connection can't get a ja3 hash string");
 +        ja->data = NULL;
