@@ -359,12 +359,12 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
  */
 int ngx_ssl_ja4(ngx_connection_t *c)
 {
-    u_char      *ptr, *data, *end, *hash_input, *hash_ptr, *footer;
+    u_char      *ptr, *data, *end, *hash_input, *hash_ptr;
     size_t       num, i, ciphers_len, exts_len, groups_len, formats_len,
-                 footer_len, sigalgs_len, cipher_count, ext_count,
+                 alpn_len, sigalgs_len, cipher_count, ext_count,
                  ext_count_total, hash_input_len, j;
     uint16_t     n, value, version_code, ciphers[128], exts[128], sigalgs[128];
-    unsigned char version[2], alpn[2], digest[32];
+    unsigned char alpn[2], digest[32];
     static const unsigned char  hex[] = "0123456789abcdef";
     ngx_flag_t   has_sni;
     unsigned char *SHA256(const unsigned char *d, size_t n,
@@ -546,45 +546,22 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         ptr += sigalgs_len;
     }
 
-    if ((size_t) (end - ptr) < 4) {
+    if ((size_t) (end - ptr) < 3) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
-                "ngx_ssl_ja4: missing sni/alpn block");
+                "ngx_ssl_ja4: missing alpn block");
         return NGX_ERROR;
     }
 
-    footer_len = ptr[0];
-    footer = ptr + 1;
-    if (footer_len != 3 || (size_t) (end - footer) < footer_len) {
+    alpn_len = ptr[0];
+    if (alpn_len != 2 || (size_t) (end - ptr) < alpn_len) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
-                "ngx_ssl_ja4: invalid sni/alpn block");
+                "ngx_ssl_ja4: invalid alpn block");
         return NGX_ERROR;
+    } else {
+        alpn[0] = ptr[1];
+        alpn[1] = ptr[2];
+        ptr += alpn_len;
     }
-    ptr = footer + footer_len;
-
-    switch (version_code) {
-    case 0x0304:
-        version[0] = '1';
-        version[1] = '3';
-        break;
-    case 0x0303:
-        version[0] = '1';
-        version[1] = '2';
-        break;
-    case 0x0302:
-        version[0] = '1';
-        version[1] = '1';
-        break;
-    case 0x0301:
-        version[0] = '1';
-        version[1] = '0';
-        break;
-    default:
-        version[0] = '0';
-        version[1] = '0';
-        break;
-    }
-    alpn[0] = footer[1];
-    alpn[1] = footer[2];
 
     c->ssl->fp_ja4_str.len = ngx_ssl_ja4_str_max_len;
     c->ssl->fp_ja4_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja4_str.len);
@@ -598,24 +575,39 @@ int ngx_ssl_ja4(ngx_connection_t *c)
 
     ptr = c->ssl->fp_ja4_str.data;
     *ptr++ = 't';
-    *ptr++ = version[0];
-    *ptr++ = version[1];
+    switch (version_code) {
+    case 0x0304:
+        *ptr++ = '1';
+        *ptr++ = '3';
+        break;
+    case 0x0303:
+        *ptr++ = '1';
+        *ptr++ = '2';
+        break;
+    case 0x0302:
+        *ptr++ = '1';
+        *ptr++ = '1';
+        break;
+    case 0x0301:
+        *ptr++ = '1';
+        *ptr++ = '0';
+        break;
+    default:
+        *ptr++ = '0';
+        *ptr++ = '0';
+        break;
+    }
     *ptr++ = has_sni ? 'd' : 'i';
     if (cipher_count < 10) {
         *ptr++ = '0';
     }
-    ptr = append_uint32(ptr, (uint32_t) cipher_count);
+    ptr = append_uint8(ptr, (uint16_t) cipher_count);
     if (ext_count_total < 10) {
         *ptr++ = '0';
     }
-    ptr = append_uint32(ptr, (uint32_t) ext_count_total);
-    if (alpn[0] == 0 || alpn[1] == 0 || alpn[0] == '0' || alpn[1] == '0') {
-        *ptr++ = '0';
-        *ptr++ = '0';
-    } else {
-        *ptr++ = alpn[0];
-        *ptr++ = alpn[1];
-    }
+    ptr = append_uint8(ptr, (uint16_t) ext_count_total);
+    *ptr++ = alpn[0];
+    *ptr++ = alpn[1];
     *ptr++ = '_';
 
     hash_input_len = ngx_ssl_ja4_hash_input_max_len;
@@ -697,6 +689,8 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         SHA256(hash_input, (size_t) (hash_ptr - hash_input - 1), digest);
         ptr = ngx_hex_dump(ptr, digest, ngx_ssl_ja4_hex_hash_len / 2);
     }
+
+    ngx_pfree(c->pool, hash_input);
 
     /* end */
     c->ssl->fp_ja4_str.len = ptr - c->ssl->fp_ja4_str.data;
