@@ -359,7 +359,22 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
  */
 int ngx_ssl_ja4(ngx_connection_t *c)
 {
-    u_char *ptr = NULL, *data = NULL;
+    u_char      *ptr, *data, *end, *hash_input, *hash_ptr, *footer;
+    size_t       num, i, ciphers_len, exts_len, groups_len, formats_len,
+                 footer_len, sigalgs_len, cipher_count, ext_count,
+                 ext_count_total, hash_input_len, j;
+    uint16_t     n, value, version_code, ciphers[128], exts[128], sigalgs[128];
+    unsigned char version[2], alpn[2], digest[32];
+    static const unsigned char  hex[] = "0123456789abcdef";
+    ngx_flag_t   has_sni;
+    unsigned char *SHA256(const unsigned char *d, size_t n,
+                          unsigned char *md);
+    enum {
+        ngx_ssl_ja4_max_fields = 128,
+        ngx_ssl_ja4_str_max_len = 40,
+        ngx_ssl_ja4_hex_hash_len = 12,
+        ngx_ssl_ja4_hash_input_max_len = 128 * 10
+    };
 
     data = c->ssl->fp_ja3_data.data;
     if (data == NULL) {
@@ -379,7 +394,199 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         return NGX_OK;
     }
 
-    c->ssl->fp_ja4_str.len = 36;
+    end = data + c->ssl->fp_ja3_data.len;
+
+    if ((size_t) (end - data) < sizeof(uint16_t) * 3 + sizeof(uint8_t) + 4) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: fp_ja_data too short");
+        return NGX_ERROR;
+    }
+
+    ptr = data;
+    version_code = *(uint16_t *) ptr;
+    ptr += sizeof(uint16_t);
+
+    ciphers_len = *(uint16_t *) ptr;
+    ptr += sizeof(uint16_t);
+    if (ciphers_len > (size_t) (end - ptr) || (ciphers_len & 1) != 0) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: invalid ciphers length");
+        return NGX_ERROR;
+    }
+
+    cipher_count = 0;
+    for (i = 0; i + 1 < ciphers_len; i += 2) {
+        n = ((uint16_t) ptr[i] << 8) | (uint16_t) ptr[i + 1];
+        if (!IS_GREASE_CODE(n)) {
+            if (cipher_count >= ngx_ssl_ja4_max_fields) {
+                ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                        "ngx_ssl_ja4: too many ciphers");
+                return NGX_ERROR;
+            }
+            ciphers[cipher_count++] = n;
+        }
+    }
+    ptr += ciphers_len;
+
+    if ((size_t) (end - ptr) < sizeof(uint16_t)) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: missing extensions block");
+        return NGX_ERROR;
+    }
+
+    exts_len = *(uint16_t *) ptr;
+    ptr += sizeof(uint16_t);
+    if (exts_len > (size_t) (end - ptr) || (exts_len & 1) != 0) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: invalid extensions length");
+        return NGX_ERROR;
+    }
+
+    ext_count = 0;
+    ext_count_total = 0;
+    has_sni = 0;
+    for (i = 0; i + 1 < exts_len; i += 2) {
+        n = *(uint16_t *) (ptr + i);
+
+        if (IS_GREASE_CODE(n)) {
+            continue;
+        }
+
+        ext_count_total++;
+
+        if (n == 0x0000) {
+            has_sni = 1;
+            continue;
+        }
+
+        if (n == 0x0010) {
+            continue;
+        }
+
+        if (ext_count >= ngx_ssl_ja4_max_fields) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: too many extensions");
+            return NGX_ERROR;
+        }
+
+        exts[ext_count++] = n;
+    }
+    ptr += exts_len;
+
+    if ((size_t) (end - ptr) < sizeof(uint16_t)) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: missing groups block");
+        return NGX_ERROR;
+    }
+
+    groups_len = *(uint16_t *) ptr;
+    if (groups_len == 0) {
+        ptr += sizeof(uint16_t);
+    } else {
+        if (groups_len < sizeof(uint16_t) || groups_len > (size_t) (end - ptr)) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: invalid groups length");
+            return NGX_ERROR;
+        }
+        ptr += groups_len;
+    }
+
+    if ((size_t) (end - ptr) < sizeof(uint8_t)) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: missing formats block");
+        return NGX_ERROR;
+    }
+
+    formats_len = ptr[0];
+    if (formats_len == 0) {
+        ptr += sizeof(uint8_t);
+    } else {
+        if (formats_len > (size_t) (end - ptr)) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: invalid formats length");
+            return NGX_ERROR;
+        }
+        ptr += formats_len;
+    }
+
+    if ((size_t) (end - ptr) < sizeof(uint16_t) * 2) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: missing ja4 metadata block");
+        return NGX_ERROR;
+    }
+
+    if (*(uint16_t *) ptr != 0) {
+        version_code = *(uint16_t *) ptr;
+    }
+    ptr += sizeof(uint16_t);
+
+    sigalgs_len = *(uint16_t *) ptr;
+    if (sigalgs_len == 0) {
+        ptr += sizeof(uint16_t);
+        num = 0;
+    } else {
+        if (sigalgs_len < sizeof(uint16_t) || sigalgs_len > (size_t) (end - ptr)) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: invalid signature algorithms length");
+            return NGX_ERROR;
+        }
+
+        num = 0;
+        for (i = sizeof(uint16_t); i + 1 < sigalgs_len; i += 2) {
+            n = ((uint16_t) ptr[i] << 8) | (uint16_t) ptr[i + 1];
+            if (!IS_GREASE_CODE(n)) {
+                if (num >= ngx_ssl_ja4_max_fields) {
+                    ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                            "ngx_ssl_ja4: too many signature algorithms");
+                    return NGX_ERROR;
+                }
+                sigalgs[num++] = n;
+            }
+        }
+        ptr += sigalgs_len;
+    }
+
+    if ((size_t) (end - ptr) < 4) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: missing sni/alpn block");
+        return NGX_ERROR;
+    }
+
+    footer_len = ptr[0];
+    footer = ptr + 1;
+    if (footer_len != 3 || (size_t) (end - footer) < footer_len) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: invalid sni/alpn block");
+        return NGX_ERROR;
+    }
+    ptr = footer + footer_len;
+
+    switch (version_code) {
+    case 0x0304:
+        version[0] = '1';
+        version[1] = '3';
+        break;
+    case 0x0303:
+        version[0] = '1';
+        version[1] = '2';
+        break;
+    case 0x0302:
+        version[0] = '1';
+        version[1] = '1';
+        break;
+    case 0x0301:
+        version[0] = '1';
+        version[1] = '0';
+        break;
+    default:
+        version[0] = '0';
+        version[1] = '0';
+        break;
+    }
+    alpn[0] = footer[1];
+    alpn[1] = footer[2];
+
+    c->ssl->fp_ja4_str.len = ngx_ssl_ja4_str_max_len;
     c->ssl->fp_ja4_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja4_str.len);
     if (c->ssl->fp_ja4_str.data == NULL) {
         /** Else we break a data stream */
@@ -389,44 +596,107 @@ int ngx_ssl_ja4(ngx_connection_t *c)
 
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja4: alloc bytes: [%d]\n", c->ssl->fp_ja4_str.len);
 
-    /* placeholder */
     ptr = c->ssl->fp_ja4_str.data;
     *ptr++ = 't';
-    *ptr++ = '1';
-    *ptr++ = '3';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
+    *ptr++ = version[0];
+    *ptr++ = version[1];
+    *ptr++ = has_sni ? 'd' : 'i';
+    if (cipher_count < 10) {
+        *ptr++ = '0';
+    }
+    ptr = append_uint32(ptr, (uint32_t) cipher_count);
+    if (ext_count_total < 10) {
+        *ptr++ = '0';
+    }
+    ptr = append_uint32(ptr, (uint32_t) ext_count_total);
+    if (alpn[0] == 0 || alpn[1] == 0 || alpn[0] == '0' || alpn[1] == '0') {
+        *ptr++ = '0';
+        *ptr++ = '0';
+    } else {
+        *ptr++ = alpn[0];
+        *ptr++ = alpn[1];
+    }
     *ptr++ = '_';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
+
+    hash_input_len = ngx_ssl_ja4_hash_input_max_len;
+    hash_input = ngx_pnalloc(c->pool, hash_input_len);
+    if (hash_input == NULL) {
+        c->ssl->fp_ja4_str.len = 0;
+        return NGX_ERROR;
+    }
+
+    if (cipher_count == 0) {
+        ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
+        ptr += ngx_ssl_ja4_hex_hash_len;
+    } else {
+        for (i = 1; i < cipher_count; i++) {
+            value = ciphers[i];
+            for (j = i; j > 0 && ciphers[j - 1] > value; j--) {
+                ciphers[j] = ciphers[j - 1];
+            }
+            ciphers[j] = value;
+        }
+
+        hash_ptr = hash_input;
+        for (i = 0; i < cipher_count; i++) {
+            hash_ptr[0] = hex[(ciphers[i] >> 12) & 0xf];
+            hash_ptr[1] = hex[(ciphers[i] >> 8) & 0xf];
+            hash_ptr[2] = hex[(ciphers[i] >> 4) & 0xf];
+            hash_ptr[3] = hex[ciphers[i] & 0xf];
+            hash_ptr += 4;
+            *hash_ptr++ = ',';
+        }
+        SHA256(hash_input, (size_t) (hash_ptr - hash_input - 1), digest);
+        ptr = ngx_hex_dump(ptr, digest, ngx_ssl_ja4_hex_hash_len / 2);
+    }
+
     *ptr++ = '_';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
-    *ptr++ = '0';
+
+    if (ext_count == 0) {
+        ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
+        ptr += ngx_ssl_ja4_hex_hash_len;
+    } else {
+        for (i = 1; i < ext_count; i++) {
+            value = exts[i];
+            for (j = i; j > 0 && exts[j - 1] > value; j--) {
+                exts[j] = exts[j - 1];
+            }
+            exts[j] = value;
+        }
+
+        for (i = 1; i < num; i++) {
+            value = sigalgs[i];
+            for (j = i; j > 0 && sigalgs[j - 1] > value; j--) {
+                sigalgs[j] = sigalgs[j - 1];
+            }
+            sigalgs[j] = value;
+        }
+
+        hash_ptr = hash_input;
+        for (i = 0; i < ext_count; i++) {
+            hash_ptr[0] = hex[(exts[i] >> 12) & 0xf];
+            hash_ptr[1] = hex[(exts[i] >> 8) & 0xf];
+            hash_ptr[2] = hex[(exts[i] >> 4) & 0xf];
+            hash_ptr[3] = hex[exts[i] & 0xf];
+            hash_ptr += 4;
+            *hash_ptr++ = ',';
+        }
+
+        if (num != 0) {
+            hash_ptr[-1] = '_';
+            for (i = 0; i < num; i++) {
+                hash_ptr[0] = hex[(sigalgs[i] >> 12) & 0xf];
+                hash_ptr[1] = hex[(sigalgs[i] >> 8) & 0xf];
+                hash_ptr[2] = hex[(sigalgs[i] >> 4) & 0xf];
+                hash_ptr[3] = hex[sigalgs[i] & 0xf];
+                hash_ptr += 4;
+                *hash_ptr++ = ',';
+            }
+        }
+
+        SHA256(hash_input, (size_t) (hash_ptr - hash_input - 1), digest);
+        ptr = ngx_hex_dump(ptr, digest, ngx_ssl_ja4_hex_hash_len / 2);
+    }
 
     /* end */
     c->ssl->fp_ja4_str.len = ptr - c->ssl->fp_ja4_str.data;
