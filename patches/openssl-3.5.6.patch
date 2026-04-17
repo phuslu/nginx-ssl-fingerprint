@@ -30,10 +30,10 @@ index 931ee79..a2d6ba3 100644
  #define TLSEXT_TYPE_compress_certificate 27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 05b0209..ba0f574 100644
+index 05b0209..41a11de 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6845,6 +6845,108 @@ err:
+@@ -6845,6 +6845,131 @@ err:
      return 0;
  }
  
@@ -41,8 +41,10 @@ index 05b0209..ba0f574 100644
 +        size_t data_size)
 +{
 +    RAW_EXTENSION *ext;
++    const unsigned char *ext_data = NULL;
 +    PACKET *groups = NULL, *formats = NULL;
 +    size_t num = 0, i;
++    char sni_and_alpn[3] = {'i', '0', '0'};
 +    unsigned char *ptr = data,
 +                  *end = data + data_size;
 +    const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
@@ -76,8 +78,21 @@ index 05b0209..ba0f574 100644
 +    num = 0;
 +    for (i = 0; i < sc->clienthello->pre_proc_exts_len; i++) {
 +        ext = sc->clienthello->pre_proc_exts + i;
-+        if (ext->present)
++        if (ext->present) {
 +            num++;
++            if (PACKET_remaining(&ext->data) >= 9) {
++                ext_data = PACKET_data(&ext->data);
++                switch (((uint16_t)ext_data[0] << 8) | (uint16_t)ext_data[1]) {
++                case 0x0000:
++                    sni_and_alpn[0] = 'd';
++                    break;
++                case 0x0010:
++                    sni_and_alpn[0] = ext_data[7];
++                    sni_and_alpn[1] = ext_data[8];
++                    break;
++                }
++            }
++        }
 +    }
 +
 +    num = num * 2;
@@ -135,6 +150,14 @@ index 05b0209..ba0f574 100644
 +        *(uint8_t *) ptr = (uint8_t) 0;
 +        ptr += sizeof(uint8_t);
 +    }
++
++    /* sni and alpn */
++    if (ossl_unlikely(ptr + 4 > end))
++        return 0;
++    *ptr++ = 3;
++    *ptr++ = sni_and_alpn[0];
++    *ptr++ = sni_and_alpn[1];
++    *ptr++ = sni_and_alpn[2];
 +
 +    return ptr - data;
 +}
