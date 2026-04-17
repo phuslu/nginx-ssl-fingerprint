@@ -1,5 +1,5 @@
 diff --git a/include/openssl/ssl.h.in b/include/openssl/ssl.h.in
-index bdcc685..02a67d1 100644
+index bdcc685..0dcdd10 100644
 --- a/include/openssl/ssl.h.in
 +++ b/include/openssl/ssl.h.in
 @@ -1926,6 +1926,8 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
@@ -30,10 +30,10 @@ index 931ee79..a2d6ba3 100644
  #define TLSEXT_TYPE_compress_certificate 27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 05b0209..f0baaff 100644
+index 05b0209..d9478bf 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6845,6 +6845,178 @@ err:
+@@ -6845,6 +6845,174 @@ err:
      return 0;
  }
  
@@ -46,7 +46,7 @@ index 05b0209..f0baaff 100644
 +            *sigalgs = NULL, *supvers = NULL;
 +    size_t num = 0, i;
 +    uint16_t version = 0, n;
-+    char sni_and_alpn[3] = {'i', '0', '0'};
++    char alpn[2] = {'0', '0'};
 +    unsigned char *ptr = data,
 +                  *end = data + data_size;
 +    const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
@@ -112,15 +112,12 @@ index 05b0209..f0baaff 100644
 +            case TLSEXT_TYPE_supported_versions:
 +                supvers = &ext->data;
 +                break;
-+            case TLSEXT_TYPE_server_name:
-+                sni_and_alpn[0] = 'd';
-+                break;
 +            case TLSEXT_TYPE_application_layer_protocol_negotiation:
 +                if (PACKET_remaining(&ext->data) >= 5) {
 +                    ext_data = PACKET_data(&ext->data);
 +                    if (ext_data[2] >= 2) {
-+                        sni_and_alpn[1] = ext_data[3];
-+                        sni_and_alpn[2] = ext_data[4];
++                        alpn[0] = ext_data[3];
++                        alpn[1] = ext_data[4];
 +                    }
 +                }
 +                break;
@@ -198,13 +195,12 @@ index 05b0209..f0baaff 100644
 +        ptr += sizeof(uint16_t);
 +    }
 +
-+    /* sni and alpn */
-+    if (ossl_unlikely(ptr + 4 > end))
++    /* alpn */
++    if (ossl_unlikely(ptr + 3 > end))
 +        return 0;
-+    *ptr++ = 3;
-+    *ptr++ = sni_and_alpn[0];
-+    *ptr++ = sni_and_alpn[1];
-+    *ptr++ = sni_and_alpn[2];
++    *ptr++ = 2;
++    *ptr++ = alpn[0];
++    *ptr++ = alpn[1];
 +
 +    return ptr - data;
 +}
