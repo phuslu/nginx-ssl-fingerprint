@@ -15,7 +15,7 @@ index 99ec654..4ce3c05 100644
  #ifdef SSL_CLIENT_HELLO_SUCCESS
  
 +static void
-+ngx_ssl_client_hello_ja3_cb(SSL *ssl)
++ngx_ssl_client_hello_ja_cb(SSL *ssl)
 +{
 +    ngx_connection_t  *c;
 +    ngx_str_t         *ja;
@@ -26,7 +26,7 @@ index 99ec654..4ce3c05 100644
 +        return;
 +    }
 +
-+    ja = &c->ssl->fp_ja3_data;
++    ja = &c->ssl->fp_ja_data;
 +    ja->len = NGX_SSL_JA3_BUFFER_SIZE;
 +
 +    ja->data = ngx_pnalloc(c->pool, NGX_SSL_JA3_BUFFER_SIZE);
@@ -53,8 +53,8 @@ index 99ec654..4ce3c05 100644
      cb = SSL_CTX_get_ex_data(c->ssl->session_ctx,
                               ngx_ssl_client_hello_arg_index);
  
-+    /* capture JA3 fingerprint data before SNI processing */
-+    ngx_ssl_client_hello_ja3_cb(ssl_conn);
++    /* capture JA3/JA4 fingerprint data before SNI processing */
++    ngx_ssl_client_hello_ja_cb(ssl_conn);
 +
      if (SSL_client_hello_get0_ext(ssl_conn, TLSEXT_TYPE_server_name,
                                    (const unsigned char **) &p, &len)
@@ -68,7 +68,7 @@ index 79ae395..bc73ef6 100644
      unsigned                    write_blocked:1;
      unsigned                    sni_accepted:1;
 +
-+    ngx_str_t                   fp_ja3_data;
++    ngx_str_t                   fp_ja_data;
 +    ngx_str_t                   fp_ja3_str;
 +    ngx_str_t                   fp_ja3_hash;
 +    ngx_str_t                   fp_ja4_str;

@@ -203,7 +203,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     size_t num = 0, i;
     uint16_t n, greased = 0;
 
-    data = c->ssl->fp_ja3_data.data;
+    data = c->ssl->fp_ja_data.data;
     if (data == NULL) {
         /**
          *  NOTE:
@@ -221,7 +221,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
         return NGX_OK;
     }
 
-    c->ssl->fp_ja3_str.len = c->ssl->fp_ja3_data.len * 4;
+    c->ssl->fp_ja3_str.len = c->ssl->fp_ja_data.len * 4;
     c->ssl->fp_ja3_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja3_str.len);
     if (c->ssl->fp_ja3_str.data == NULL) {
         /** Else we break a data stream */
@@ -376,7 +376,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         ngx_ssl_ja4_hash_input_max_len = 128 * 10
     };
 
-    data = c->ssl->fp_ja3_data.data;
+    data = c->ssl->fp_ja_data.data;
     if (data == NULL) {
         /**
          *  NOTE:
@@ -394,7 +394,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         return NGX_OK;
     }
 
-    end = data + c->ssl->fp_ja3_data.len;
+    end = data + c->ssl->fp_ja_data.len;
 
     if ((size_t) (end - data) < sizeof(uint16_t) * 3 + sizeof(uint8_t) + 4) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
