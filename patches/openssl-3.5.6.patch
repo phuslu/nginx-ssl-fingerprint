@@ -30,10 +30,10 @@ index 931ee79..a2d6ba3 100644
  #define TLSEXT_TYPE_compress_certificate 27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 05b0209..41a11de 100644
+index 05b0209..f0baaff 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6845,6 +6845,131 @@ err:
+@@ -6845,6 +6845,178 @@ err:
      return 0;
  }
  
@@ -42,8 +42,10 @@ index 05b0209..41a11de 100644
 +{
 +    RAW_EXTENSION *ext;
 +    const unsigned char *ext_data = NULL;
-+    PACKET *groups = NULL, *formats = NULL;
++    PACKET *groups = NULL, *formats = NULL,
++            *sigalgs = NULL, *supvers = NULL;
 +    size_t num = 0, i;
++    uint16_t version = 0, n;
 +    char sni_and_alpn[3] = {'i', '0', '0'};
 +    unsigned char *ptr = data,
 +                  *end = data + data_size;
@@ -78,21 +80,8 @@ index 05b0209..41a11de 100644
 +    num = 0;
 +    for (i = 0; i < sc->clienthello->pre_proc_exts_len; i++) {
 +        ext = sc->clienthello->pre_proc_exts + i;
-+        if (ext->present) {
++        if (ext->present)
 +            num++;
-+            if (PACKET_remaining(&ext->data) >= 9) {
-+                ext_data = PACKET_data(&ext->data);
-+                switch (((uint16_t)ext_data[0] << 8) | (uint16_t)ext_data[1]) {
-+                case 0x0000:
-+                    sni_and_alpn[0] = 'd';
-+                    break;
-+                case 0x0010:
-+                    sni_and_alpn[0] = ext_data[7];
-+                    sni_and_alpn[1] = ext_data[8];
-+                    break;
-+                }
-+            }
-+        }
 +    }
 +
 +    num = num * 2;
@@ -107,12 +96,34 @@ index 05b0209..41a11de 100644
 +        if (ext->present) {
 +            if (ext->received_order >= num)
 +                break;
-+            if (ext->type == TLSEXT_TYPE_supported_groups)
-+                groups = &ext->data;
-+            if (ext->type == TLSEXT_TYPE_ec_point_formats)
-+                formats = &ext->data;
 +            if (ossl_likely(ext->received_order < data_size)) {
 +                ((uint16_t*)(ptr))[ext->received_order] = (uint16_t) ext->type;
++            }
++            switch (ext->type) {
++            case TLSEXT_TYPE_supported_groups:
++                groups = &ext->data;
++                break;
++            case TLSEXT_TYPE_ec_point_formats:
++                formats = &ext->data;
++                break;
++            case TLSEXT_TYPE_signature_algorithms:
++                sigalgs = &ext->data;
++                break;
++            case TLSEXT_TYPE_supported_versions:
++                supvers = &ext->data;
++                break;
++            case TLSEXT_TYPE_server_name:
++                sni_and_alpn[0] = 'd';
++                break;
++            case TLSEXT_TYPE_application_layer_protocol_negotiation:
++                if (PACKET_remaining(&ext->data) >= 5) {
++                    ext_data = PACKET_data(&ext->data);
++                    if (ext_data[2] >= 2) {
++                        sni_and_alpn[1] = ext_data[3];
++                        sni_and_alpn[2] = ext_data[4];
++                    }
++                }
++                break;
 +            }
 +        }
 +    }
@@ -149,6 +160,42 @@ index 05b0209..41a11de 100644
 +            return 0;
 +        *(uint8_t *) ptr = (uint8_t) 0;
 +        ptr += sizeof(uint8_t);
++    }
++
++    /* supported version */
++    if (supvers
++        && (num = PACKET_remaining(supvers)) >= 3)
++    {
++        ext_data = PACKET_data(supvers);
++        for (i = 1; i + 1 < num && i <= ext_data[0]; i += 2) {
++            n = ((uint16_t) ext_data[i] << 8) | (uint16_t) ext_data[i + 1];
++            if (((n & 0x0f0f) != 0x0a0a || (n & 0xff) != (n >> 8))
++                && n > version)
++            {
++                version = n;
++            }
++        }
++    }
++
++    if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
++        return 0;
++    *(uint16_t *) ptr = version;
++    ptr += sizeof(uint16_t);
++
++    /* signature algorithms */
++    if (sigalgs
++        && (num = PACKET_remaining(sigalgs)) > 0)
++    {
++        if (ossl_unlikely(ptr + num > end))
++            return 0;
++        memcpy(ptr, PACKET_data(sigalgs), num);
++        *(uint16_t *) ptr = (uint16_t) num;
++        ptr += num;
++    } else {
++        if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
++            return 0;
++        *(uint16_t *) ptr = (uint16_t) 0;
++        ptr += sizeof(uint16_t);
 +    }
 +
 +    /* sni and alpn */
