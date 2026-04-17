@@ -69,7 +69,7 @@ ngx_stream_ssl_greased(ngx_stream_session_t *s,
 }
 
 static ngx_int_t
-ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
+ngx_stream_ssl_ja3(ngx_stream_session_t *s,
                  ngx_stream_variable_value_t *v, uintptr_t data)
 {
     v->not_found = 1;
@@ -98,7 +98,7 @@ ngx_stream_ssl_fingerprint(ngx_stream_session_t *s,
 }
 
 static ngx_int_t
-ngx_stream_ssl_fingerprint_hash(ngx_stream_session_t *s,
+ngx_stream_ssl_ja3_hash(ngx_stream_session_t *s,
                  ngx_stream_variable_value_t *v, uintptr_t data)
 {
     v->not_found = 1;
@@ -126,7 +126,7 @@ ngx_stream_ssl_fingerprint_hash(ngx_stream_session_t *s,
     return NGX_OK;
 }
 
-static ngx_stream_variable_t  ngx_stream_ssl_ja3_variables_list[] = {
+static ngx_stream_variable_t  ngx_stream_ssl_fingerprint_variables_list[] = {
 
     {   ngx_string("stream_ssl_greased"),
         NULL,
@@ -136,13 +136,13 @@ static ngx_stream_variable_t  ngx_stream_ssl_ja3_variables_list[] = {
 
     {   ngx_string("stream_ssl_ja3"),
         NULL,
-        ngx_stream_ssl_fingerprint,
+        ngx_stream_ssl_ja3,
         0, 0, 0
     },
 
     {   ngx_string("stream_ssl_ja3_hash"),
         NULL,
-        ngx_stream_ssl_fingerprint_hash,
+        ngx_stream_ssl_ja3_hash,
         0, 0, 0
     },
 
@@ -155,18 +155,18 @@ ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf)
     size_t                        l = 0;
     size_t                        vars_len;
 
-    vars_len = (sizeof(ngx_stream_ssl_ja3_variables_list) /
-            sizeof(ngx_stream_ssl_ja3_variables_list[0]));
+    vars_len = (sizeof(ngx_stream_ssl_fingerprint_variables_list) /
+            sizeof(ngx_stream_ssl_fingerprint_variables_list[0]));
 
     /* Register variables */
     for (l = 0; l < vars_len ; ++l) {
         v = ngx_stream_add_variable(cf,
-                &ngx_stream_ssl_ja3_variables_list[l].name,
-                ngx_stream_ssl_ja3_variables_list[l].flags);
+                &ngx_stream_ssl_fingerprint_variables_list[l].name,
+                ngx_stream_ssl_fingerprint_variables_list[l].flags);
         if (v == NULL) {
             continue;
         }
-        *v = ngx_stream_ssl_ja3_variables_list[l];
+        *v = ngx_stream_ssl_fingerprint_variables_list[l];
     }
 
     return NGX_OK;

@@ -8,9 +8,9 @@
 static ngx_int_t ngx_http_ssl_fingerprint_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_ssl_greased(ngx_http_request_t *r,
                             ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_ssl_fingerprint(ngx_http_request_t *r,
+static ngx_int_t ngx_http_ssl_ja3(ngx_http_request_t *r,
                             ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
+static ngx_int_t ngx_http_ssl_ja3_hash(ngx_http_request_t *r,
                              ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_http2_fingerprint(ngx_http_request_t *r,
                             ngx_http_variable_value_t *v, uintptr_t data);
@@ -43,9 +43,9 @@ ngx_module_t ngx_http_ssl_fingerprint_module = {
 static ngx_http_variable_t ngx_http_ssl_fingerprint_variables_list[] = {
     {ngx_string("http_ssl_greased"), NULL, ngx_http_ssl_greased,
      0, 0, 0},
-    {ngx_string("http_ssl_ja3"), NULL, ngx_http_ssl_fingerprint,
+    {ngx_string("http_ssl_ja3"), NULL, ngx_http_ssl_ja3,
      0, 0, 0},
-    {ngx_string("http_ssl_ja3_hash"), NULL, ngx_http_ssl_fingerprint_hash,
+    {ngx_string("http_ssl_ja3_hash"), NULL, ngx_http_ssl_ja3_hash,
      0, 0, 0},
     {ngx_string("http2_fingerprint"), NULL, ngx_http_http2_fingerprint,
      0, 0, 0},
@@ -77,7 +77,7 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
 }
 
 static ngx_int_t
-ngx_http_ssl_fingerprint(ngx_http_request_t *r,
+ngx_http_ssl_ja3(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
     /* For access.log's map $VAR {}:
@@ -101,7 +101,7 @@ ngx_http_ssl_fingerprint(ngx_http_request_t *r,
 }
 
 static ngx_int_t
-ngx_http_ssl_fingerprint_hash(ngx_http_request_t *r,
+ngx_http_ssl_ja3_hash(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
     /* For access.log's map $VAR {}:
