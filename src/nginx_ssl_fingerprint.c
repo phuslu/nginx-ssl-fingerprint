@@ -359,14 +359,16 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
  */
 int ngx_ssl_ja4(ngx_connection_t *c)
 {
-    u_char        *ptr, *data, *end, *hash_ptr;
-    size_t         num, i, j, ciphers_len, exts_len, groups_len, formats_len, alpn_len,
-                   sigalgs_len, cipher_count, ext_count, ext_count_total;
-    uint16_t       n, version_code, ciphers[128], exts[128], sigalgs[128];
+    u_char        *ptr, *data, *end, *sigalgs_data;
+    size_t         num, i, j, ciphers_len, exts_len, groups_len, formats_len,
+                   alpn_len, sigalgs_len, cipher_count, ext_count,
+                   ext_count_total;
+    uint16_t       n, version_code, hash_buf[128];
     unsigned char  alpn[2] = {'0', '0'};
-    unsigned char  hash_input[1280], digest[SHA256_DIGEST_LENGTH];
+    unsigned char  digest[SHA256_DIGEST_LENGTH], cipher_hash[6], hash_part[5];
     static const unsigned char  hex[] = "0123456789abcdef";
     ngx_flag_t    has_sni;
+    SHA256_CTX    sha256;
     enum {
         ngx_ssl_ja4_max_fields = 128,
         ngx_ssl_ja4_str_max_len = 38,
@@ -420,10 +422,48 @@ int ngx_ssl_ja4(ngx_connection_t *c)
                         "ngx_ssl_ja4: too many ciphers");
                 return NGX_ERROR;
             }
-            ciphers[cipher_count++] = n;
+            hash_buf[cipher_count++] = n;
         }
     }
     data += ciphers_len;
+
+    if (cipher_count != 0) {
+        for (i = 1; i < cipher_count; i++) {
+            n = hash_buf[i];
+            for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
+                hash_buf[j] = hash_buf[j - 1];
+            }
+            hash_buf[j] = n;
+        }
+
+        if (SHA256_Init(&sha256) != 1) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: SHA256_Init failed");
+            return NGX_ERROR;
+        }
+
+        for (i = 0; i < cipher_count; i++) {
+            hash_part[0] = hex[(hash_buf[i] >> 12) & 0xf];
+            hash_part[1] = hex[(hash_buf[i] >> 8) & 0xf];
+            hash_part[2] = hex[(hash_buf[i] >> 4) & 0xf];
+            hash_part[3] = hex[hash_buf[i] & 0xf];
+            hash_part[4] = ',';
+            if (SHA256_Update(&sha256, hash_part,
+                              (i + 1 == cipher_count) ? 4 : 5) != 1)
+            {
+                ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                        "ngx_ssl_ja4: SHA256_Update failed");
+                return NGX_ERROR;
+            }
+        }
+
+        if (SHA256_Final(digest, &sha256) != 1) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: SHA256_Final failed");
+            return NGX_ERROR;
+        }
+        ngx_memcpy(cipher_hash, digest, sizeof(cipher_hash));
+    }
 
     /* extensions */
     if ((size_t) (end - data) < sizeof(uint16_t)) {
@@ -467,7 +507,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
             return NGX_ERROR;
         }
 
-        exts[ext_count++] = n;
+        hash_buf[ext_count++] = n;
     }
     data += exts_len;
 
@@ -524,6 +564,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     data += sizeof(uint16_t);
 
     /* signature algorithms */
+    sigalgs_data = data;
     sigalgs_len = *(uint16_t *) data;
     if (sigalgs_len == 0) {
         data += sizeof(uint16_t);
@@ -540,26 +581,32 @@ int ngx_ssl_ja4(ngx_connection_t *c)
 
         num = 0;
         for (i = sizeof(uint16_t); i + 1 < sigalgs_len; i += 2) {
-            n = ((uint16_t) data[i] << 8) | (uint16_t) data[i + 1];
+            n = ((uint16_t) sigalgs_data[i] << 8)
+                | (uint16_t) sigalgs_data[i + 1];
             if (!IS_GREASE_CODE(n)) {
                 if (num >= ngx_ssl_ja4_max_fields) {
                     ngx_log_error(NGX_LOG_WARN, c->log, 0,
                             "ngx_ssl_ja4: too many signature algorithms");
                     return NGX_ERROR;
                 }
-                sigalgs[num++] = n;
+                num++;
             }
         }
         data += sigalgs_len;
     }
 
     /* alpn */
+    if ((size_t) (end - data) < sizeof(uint16_t)) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                "ngx_ssl_ja4: missing alpn block");
+        return NGX_ERROR;
+    }
+
     alpn_len = *(uint16_t *) data;
     if (alpn_len == 0) {
         data += sizeof(uint16_t);
-        num = 0;
     } else {
-        if (alpn_len < sizeof(uint16_t)
+        if (alpn_len < sizeof(uint16_t) + 2
             || alpn_len > (size_t) (end - data))
         {
             ngx_log_error(NGX_LOG_WARN, c->log, 0,
@@ -568,7 +615,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         }
 
         n = data[2];
-        if (n > alpn_len - 2) {
+        if (n == 0 || n > alpn_len - 3) {
             ngx_log_error(NGX_LOG_WARN, c->log, 0,
                     "ngx_ssl_ja4: invalid alpn length");
             return NGX_ERROR;
@@ -643,25 +690,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
         ptr += ngx_ssl_ja4_hex_hash_len;
     } else {
-        for (i = 1; i < cipher_count; i++) {
-            n = ciphers[i];
-            for (j = i; j > 0 && ciphers[j - 1] > n; j--) {
-                ciphers[j] = ciphers[j - 1];
-            }
-            ciphers[j] = n;
-        }
-
-        hash_ptr = hash_input;
-        for (i = 0; i < cipher_count; i++) {
-            hash_ptr[0] = hex[(ciphers[i] >> 12) & 0xf];
-            hash_ptr[1] = hex[(ciphers[i] >> 8) & 0xf];
-            hash_ptr[2] = hex[(ciphers[i] >> 4) & 0xf];
-            hash_ptr[3] = hex[ciphers[i] & 0xf];
-            hash_ptr += 4;
-            *hash_ptr++ = ',';
-        }
-        SHA256(hash_input, (size_t) (hash_ptr - hash_input - 1), digest);
-        ptr = ngx_hex_dump(ptr, digest, ngx_ssl_ja4_hex_hash_len / 2);
+        ptr = ngx_hex_dump(ptr, cipher_hash, ngx_ssl_ja4_hex_hash_len / 2);
     }
 
     *ptr++ = '_';
@@ -671,36 +700,73 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         ptr += ngx_ssl_ja4_hex_hash_len;
     } else {
         for (i = 1; i < ext_count; i++) {
-            n = exts[i];
-            for (j = i; j > 0 && exts[j - 1] > n; j--) {
-                exts[j] = exts[j - 1];
+            n = hash_buf[i];
+            for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
+                hash_buf[j] = hash_buf[j - 1];
             }
-            exts[j] = n;
+            hash_buf[j] = n;
         }
 
-        hash_ptr = hash_input;
+        if (SHA256_Init(&sha256) != 1) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: SHA256_Init failed");
+            return NGX_ERROR;
+        }
+
         for (i = 0; i < ext_count; i++) {
-            hash_ptr[0] = hex[(exts[i] >> 12) & 0xf];
-            hash_ptr[1] = hex[(exts[i] >> 8) & 0xf];
-            hash_ptr[2] = hex[(exts[i] >> 4) & 0xf];
-            hash_ptr[3] = hex[exts[i] & 0xf];
-            hash_ptr += 4;
-            *hash_ptr++ = ',';
+            hash_part[0] = hex[(hash_buf[i] >> 12) & 0xf];
+            hash_part[1] = hex[(hash_buf[i] >> 8) & 0xf];
+            hash_part[2] = hex[(hash_buf[i] >> 4) & 0xf];
+            hash_part[3] = hex[hash_buf[i] & 0xf];
+            hash_part[4] = (i + 1 == ext_count && num != 0) ? '_' : ',';
+            if (SHA256_Update(&sha256, hash_part,
+                              (i + 1 == ext_count && num == 0) ? 4 : 5) != 1)
+            {
+                ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                        "ngx_ssl_ja4: SHA256_Update failed");
+                return NGX_ERROR;
+            }
         }
 
         if (num != 0) {
-            hash_ptr[-1] = '_';
+            j = 0;
+            for (i = sizeof(uint16_t); i + 1 < sigalgs_len; i += 2) {
+                n = ((uint16_t) sigalgs_data[i] << 8)
+                    | (uint16_t) sigalgs_data[i + 1];
+                if (!IS_GREASE_CODE(n)) {
+                    hash_buf[j++] = n;
+                }
+            }
+
+            for (i = 1; i < num; i++) {
+                n = hash_buf[i];
+                for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
+                    hash_buf[j] = hash_buf[j - 1];
+                }
+                hash_buf[j] = n;
+            }
+
             for (i = 0; i < num; i++) {
-                hash_ptr[0] = hex[(sigalgs[i] >> 12) & 0xf];
-                hash_ptr[1] = hex[(sigalgs[i] >> 8) & 0xf];
-                hash_ptr[2] = hex[(sigalgs[i] >> 4) & 0xf];
-                hash_ptr[3] = hex[sigalgs[i] & 0xf];
-                hash_ptr += 4;
-                *hash_ptr++ = ',';
+                hash_part[0] = hex[(hash_buf[i] >> 12) & 0xf];
+                hash_part[1] = hex[(hash_buf[i] >> 8) & 0xf];
+                hash_part[2] = hex[(hash_buf[i] >> 4) & 0xf];
+                hash_part[3] = hex[hash_buf[i] & 0xf];
+                hash_part[4] = ',';
+                if (SHA256_Update(&sha256, hash_part,
+                                  (i + 1 == num) ? 4 : 5) != 1)
+                {
+                    ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                            "ngx_ssl_ja4: SHA256_Update failed");
+                    return NGX_ERROR;
+                }
             }
         }
 
-        SHA256(hash_input, (size_t) (hash_ptr - hash_input - 1), digest);
+        if (SHA256_Final(digest, &sha256) != 1) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: SHA256_Final failed");
+            return NGX_ERROR;
+        }
         ptr = ngx_hex_dump(ptr, digest, ngx_ssl_ja4_hex_hash_len / 2);
     }
 
