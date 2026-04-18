@@ -366,7 +366,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     size_t         i, j;
     uint16_t       n, version_code, hash_buf[128];
     unsigned char  alpn[2] = { '0', '0' };
-    unsigned char  cipher_hash[6], exts_hash[6], hash_part[5],
+    unsigned char  cipher_hash[6] = { 0 }, exts_hash[6] = { 0 }, hash_part[5],
                    digest[SHA256_DIGEST_LENGTH];
     static const unsigned char  hex[] = "0123456789abcdef";
     ngx_flag_t    has_sni;
@@ -570,7 +570,6 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     sigalgs_len = *(uint16_t *) data;
     if (sigalgs_len == 0) {
         data += sizeof(uint16_t);
-        sigalg_count = 0;
     } else {
         if (sigalgs_len < sizeof(uint16_t)
             || sigalgs_len > (size_t) (end - data)
@@ -581,23 +580,10 @@ int ngx_ssl_ja4(ngx_connection_t *c)
             return NGX_ERROR;
         }
 
-        sigalg_count = 0;
-        for (i = sizeof(uint16_t); i + 1 < sigalgs_len; i += 2) {
-            n = ((uint16_t) sigalgs_data[i] << 8)
-                | (uint16_t) sigalgs_data[i + 1];
-            if (!IS_GREASE_CODE(n)) {
-                if (sigalg_count >= ngx_ssl_ja4_max_fields) {
-                    ngx_log_error(NGX_LOG_WARN, c->log, 0,
-                            "ngx_ssl_ja4: too many signature algorithms");
-                    return NGX_ERROR;
-                }
-                sigalg_count++;
-            }
-        }
         data += sigalgs_len;
     }
 
-    /* alpn */
+    /* alpn 2 digits */
     if ((size_t) (end - data) < sizeof(uint16_t)) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
                 "ngx_ssl_ja4: missing alpn block");
@@ -627,6 +613,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         data += alpn_len;
     }
 
+    /* extensions and sigalgs digest */
     if (exts_count != 0) {
         for (i = 1; i < exts_count; i++) {
             n = hash_buf[i];
@@ -640,6 +627,20 @@ int ngx_ssl_ja4(ngx_connection_t *c)
             ngx_log_error(NGX_LOG_WARN, c->log, 0,
                     "ngx_ssl_ja4: SHA256_Init failed");
             return NGX_ERROR;
+        }
+
+        sigalg_count = 0;
+        for (i = sizeof(uint16_t); i + 1 < sigalgs_len; i += 2) {
+            n = ((uint16_t) sigalgs_data[i] << 8)
+                | (uint16_t) sigalgs_data[i + 1];
+            if (!IS_GREASE_CODE(n)) {
+                if (sigalg_count >= ngx_ssl_ja4_max_fields) {
+                    ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                            "ngx_ssl_ja4: too many signature algorithms");
+                    return NGX_ERROR;
+                }
+                sigalg_count++;
+            }
         }
 
         for (i = 0; i < exts_count; i++) {
@@ -759,22 +760,10 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         *ptr++ = hex[alpn[1] & 0xf];
     }
     *ptr++ = '_';
-
-    if (cipher_count == 0) {
-        ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
-        ptr += ngx_ssl_ja4_hex_hash_len;
-    } else {
-        ptr = ngx_hex_dump(ptr, cipher_hash, ngx_ssl_ja4_hex_hash_len / 2);
-    }
+    ptr = ngx_hex_dump(ptr, cipher_hash, ngx_ssl_ja4_hex_hash_len / 2);
 
     *ptr++ = '_';
-
-    if (exts_count == 0) {
-        ngx_memcpy(ptr, "000000000000", ngx_ssl_ja4_hex_hash_len);
-        ptr += ngx_ssl_ja4_hex_hash_len;
-    } else {
-        ptr = ngx_hex_dump(ptr, exts_hash, ngx_ssl_ja4_hex_hash_len / 2);
-    }
+    ptr = ngx_hex_dump(ptr, exts_hash, ngx_ssl_ja4_hex_hash_len / 2);
 
     /* end */
     c->ssl->fp_ja4_str.len = ptr - c->ssl->fp_ja4_str.data;
