@@ -630,8 +630,13 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         *ptr++ = '0';
     }
     ptr = append_uint8(ptr, (uint8_t) ext_count_total);
-    *ptr++ = alpn[0];
-    *ptr++ = alpn[1];
+    if (isalnum(alpn[0]) && isalnum(alpn[1])) {
+        *ptr++ = alpn[0];
+        *ptr++ = alpn[1];
+    } else {
+        *ptr++ = hex[alpn[0] >> 4];
+        *ptr++ = hex[alpn[1] & 0xf];
+    }
     *ptr++ = '_';
 
     if (cipher_count == 0) {
