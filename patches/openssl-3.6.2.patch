@@ -33,7 +33,7 @@ diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
 index 4016fde..99e471a 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6869,6 +6869,177 @@ err:
+@@ -6869,6 +6869,175 @@ err:
      return 0;
  }
  
@@ -65,13 +65,11 @@ index 4016fde..99e471a 100644
 +
 +    /* ciphers */
 +    num = PACKET_remaining(&sc->clienthello->ciphersuites);
++    if (ossl_unlikely(ptr + sizeof(uint16_t) + num > end))
++        return 0;
++    *(uint16_t *) ptr = (uint16_t) num;
++    ptr += sizeof(uint16_t);
 +    if (ossl_likely(num > 0)) {
-+        *(uint16_t *) ptr = (uint16_t) num;
-+        ptr += sizeof(uint16_t);
-+
-+        if (ossl_unlikely(ptr + num > end))
-+            return 0;
-+
 +        memcpy(ptr, PACKET_data(&sc->clienthello->ciphersuites), num);
 +        ptr += num;
 +    }
