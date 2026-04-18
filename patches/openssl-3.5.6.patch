@@ -30,10 +30,10 @@ index 931ee79..a2d6ba3 100644
  #define TLSEXT_TYPE_compress_certificate 27
  
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 05b0209..d9478bf 100644
+index 05b0209..9723cc2 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6845,6 +6845,174 @@ err:
+@@ -6845,6 +6845,177 @@ err:
      return 0;
  }
  
@@ -43,10 +43,10 @@ index 05b0209..d9478bf 100644
 +    RAW_EXTENSION *ext;
 +    const unsigned char *ext_data = NULL;
 +    PACKET *groups = NULL, *formats = NULL,
-+            *sigalgs = NULL, *supvers = NULL;
++            *sigalgs = NULL, *supvers = NULL,
++            *alpn = NULL;
 +    size_t num = 0, i;
 +    uint16_t version = 0, n;
-+    char alpn[2] = {'0', '0'};
 +    unsigned char *ptr = data,
 +                  *end = data + data_size;
 +    const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
@@ -113,13 +113,7 @@ index 05b0209..d9478bf 100644
 +                supvers = &ext->data;
 +                break;
 +            case TLSEXT_TYPE_application_layer_protocol_negotiation:
-+                if (PACKET_remaining(&ext->data) >= 5) {
-+                    ext_data = PACKET_data(&ext->data);
-+                    if (ext_data[2] >= 2) {
-+                        alpn[0] = ext_data[3];
-+                        alpn[1] = ext_data[4];
-+                    }
-+                }
++                alpn = &ext->data;
 +                break;
 +            }
 +        }
@@ -196,11 +190,20 @@ index 05b0209..d9478bf 100644
 +    }
 +
 +    /* alpn */
-+    if (ossl_unlikely(ptr + 3 > end))
-+        return 0;
-+    *ptr++ = 2;
-+    *ptr++ = alpn[0];
-+    *ptr++ = alpn[1];
++    if (alpn
++        && (num = PACKET_remaining(alpn)) > 0)
++    {
++        if (ossl_unlikely(ptr + num > end))
++            return 0;
++        memcpy(ptr, PACKET_data(alpn), num);
++        *(uint16_t *) ptr = (uint16_t) num;
++        ptr += num;
++    } else {
++        if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
++            return 0;
++        *(uint16_t *) ptr = (uint16_t) 0;
++        ptr += sizeof(uint16_t);
++    }
 +
 +    return ptr - data;
 +}
