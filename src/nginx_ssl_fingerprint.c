@@ -570,23 +570,31 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_ssl_ja4: alloc bytes: [%d]\n", c->ssl->fp_ja4_str.len);
 
     ptr = c->ssl->fp_ja4_str.data;
+#if (NGX_QUIC || NGX_COMPAT)
+    *ptr++ = c->quic ? 'q' : 't';
+#else
     *ptr++ = 't';
+#endif
     switch (version_code) {
-    case 0x0304:
+    case TLS1_3_VERSION:
         *ptr++ = '1';
         *ptr++ = '3';
         break;
-    case 0x0303:
+    case TLS1_2_VERSION:
         *ptr++ = '1';
         *ptr++ = '2';
         break;
-    case 0x0302:
+    case TLS1_1_VERSION:
         *ptr++ = '1';
         *ptr++ = '1';
         break;
-    case 0x0301:
+    case TLS1_VERSION:
         *ptr++ = '1';
         *ptr++ = '0';
+        break;
+    case SSL3_VERSION:
+        *ptr++ = 's';
+        *ptr++ = '3';
         break;
     default:
         *ptr++ = '0';
