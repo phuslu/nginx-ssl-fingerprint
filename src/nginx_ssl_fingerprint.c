@@ -359,10 +359,11 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
  */
 int ngx_ssl_ja4(ngx_connection_t *c)
 {
-    u_char        *ptr, *data, *end, *hash_ptr, *alpn;
-    size_t         num, i, j, ciphers_len, exts_len, groups_len, formats_len,
+    u_char        *ptr, *data, *end, *hash_ptr;
+    size_t         num, i, j, ciphers_len, exts_len, groups_len, formats_len, alpn_len,
                    sigalgs_len, cipher_count, ext_count, ext_count_total;
     uint16_t       n, version_code, ciphers[128], exts[128], sigalgs[128];
+    unsigned char  alpn[2] = {'0', '0'};
     unsigned char  hash_input[1280], digest[SHA256_DIGEST_LENGTH];
     static const unsigned char  hex[] = "0123456789abcdef";
     ngx_flag_t    has_sni;
@@ -401,6 +402,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     version_code = *(uint16_t *) data;
     data += sizeof(uint16_t);
 
+    /* ciphers */
     ciphers_len = *(uint16_t *) data;
     data += sizeof(uint16_t);
     if (ciphers_len > (size_t) (end - data) || (ciphers_len & 1) != 0) {
@@ -423,6 +425,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     }
     data += ciphers_len;
 
+    /* extensions */
     if ((size_t) (end - data) < sizeof(uint16_t)) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
                 "ngx_ssl_ja4: missing extensions block");
@@ -468,6 +471,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     }
     data += exts_len;
 
+    /* groups */
     if ((size_t) (end - data) < sizeof(uint16_t)) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
                 "ngx_ssl_ja4: missing groups block");
@@ -488,6 +492,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         data += groups_len;
     }
 
+    /* formats */
     if ((size_t) (end - data) < sizeof(uint8_t)) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
                 "ngx_ssl_ja4: missing formats block");
@@ -506,6 +511,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         data += formats_len;
     }
 
+    /* supported version */
     if ((size_t) (end - data) < sizeof(uint16_t) * 2) {
         ngx_log_error(NGX_LOG_WARN, c->log, 0,
                 "ngx_ssl_ja4: missing ja4 metadata block");
@@ -517,6 +523,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     }
     data += sizeof(uint16_t);
 
+    /* signature algorithms */
     sigalgs_len = *(uint16_t *) data;
     if (sigalgs_len == 0) {
         data += sizeof(uint16_t);
@@ -546,19 +553,32 @@ int ngx_ssl_ja4(ngx_connection_t *c)
         data += sigalgs_len;
     }
 
-    if ((size_t) (end - data) < 3) {
-        ngx_log_error(NGX_LOG_WARN, c->log, 0,
-                "ngx_ssl_ja4: missing alpn block");
-        return NGX_ERROR;
+    /* alpn */
+    alpn_len = *(uint16_t *) data;
+    if (alpn_len == 0) {
+        data += sizeof(uint16_t);
+        num = 0;
+    } else {
+        if (alpn_len < sizeof(uint16_t)
+            || alpn_len > (size_t) (end - data))
+        {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: invalid alpn length");
+            return NGX_ERROR;
+        }
+
+        n = data[2];
+        if (n > alpn_len - 2) {
+            ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                    "ngx_ssl_ja4: invalid alpn length");
+            return NGX_ERROR;
+        }
+        alpn[0] = data[3];
+        alpn[1] = data[n+2];
+        data += alpn_len;
     }
 
-    if (data[0] != 2) {
-        ngx_log_error(NGX_LOG_WARN, c->log, 0,
-                "ngx_ssl_ja4: invalid alpn block");
-        return NGX_ERROR;
-    }
-    alpn = data + 1;
-
+    /* ja4 */
     c->ssl->fp_ja4_str.len = ngx_ssl_ja4_str_max_len;
     c->ssl->fp_ja4_str.data = ngx_pnalloc(c->pool, c->ssl->fp_ja4_str.len);
     if (c->ssl->fp_ja4_str.data == NULL) {
