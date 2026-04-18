@@ -673,14 +673,6 @@ int ngx_ssl_ja4(ngx_connection_t *c)
             exts[j] = n;
         }
 
-        for (i = 1; i < num; i++) {
-            n = sigalgs[i];
-            for (j = i; j > 0 && sigalgs[j - 1] > n; j--) {
-                sigalgs[j] = sigalgs[j - 1];
-            }
-            sigalgs[j] = n;
-        }
-
         hash_ptr = hash_input;
         for (i = 0; i < ext_count; i++) {
             hash_ptr[0] = hex[(exts[i] >> 12) & 0xf];
