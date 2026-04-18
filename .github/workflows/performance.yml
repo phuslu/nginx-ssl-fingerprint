@@ -48,7 +48,7 @@ jobs:
         run: |
           cd nginx
           ./auto/configure --with-openssl=$(pwd)/../openssl --with-http_ssl_module --with-stream_ssl_module --with-stream --with-http_v2_module
-          make
+          make -j$(nproc)
       - name: Baseline Performance
         run: |
           nginx/objs/nginx -p . -c nginx.conf
@@ -63,7 +63,7 @@ jobs:
         run: |
           cd nginx
           ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-stream --with-http_v2_module
-          make
+          make -j$(nproc)
       - name: Performance
         run: |
           kill -9 $(pgrep nginx)
