@@ -785,13 +785,14 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
 {
     unsigned char *pstr = NULL;
     unsigned short n = 0;
-    size_t i;
+    size_t i, j;
+    uint16_t id;
 
     if (h2c->fp_str.len > 0) {
         return NGX_OK;
     }
 
-    n = 4 + h2c->fp_settings.len * 3
+    n = 4 + h2c->fp_settings.len * 17
         + 10 + h2c->fp_priorities.len * 4
         + h2c->fp_pseudoheaders.len * 2;
 
@@ -805,13 +806,19 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, c->log, 0, "ngx_http2_fingerprint: alloc bytes: [%d]\n", n);
 
     /* setting */
-    for (i = 0; i < h2c->fp_settings.len; i+=5) {
-        pstr = append_uint8(pstr, h2c->fp_settings.data[i]);
+    for (i = 0, j = 0; i < h2c->fp_settings.len; i++) {
+        id = h2c->fp_settings.ids[i];
+        if (IS_GREASE_CODE(id)) {
+            continue;
+        }
+        if (j++ > 0) {
+            *pstr++ = ';';
+        }
+        pstr = append_uint16(pstr, id);
         *pstr++ = ':';
-        pstr = append_uint32(pstr, *(uint32_t*)(h2c->fp_settings.data+i+1));
-        *pstr++ = ';';
+        pstr = append_uint32(pstr, h2c->fp_settings.values[i]);
     }
-    *(pstr-1) = '|';
+    *pstr++ = '|';
 
     /* windows update */
     pstr = append_uint32(pstr, h2c->fp_windowupdate);
