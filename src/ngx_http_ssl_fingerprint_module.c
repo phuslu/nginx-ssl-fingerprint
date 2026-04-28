@@ -156,6 +156,8 @@ static ngx_int_t
 ngx_http_http2_fingerprint(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
 {
+    ngx_str_t  fp;
+
     /* For access.log's map $VAR {}:
      * if it's not found, then user could add a defined string */
     v->not_found = 1;
@@ -164,14 +166,14 @@ ngx_http_http2_fingerprint(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    if (ngx_http2_fingerprint(r->connection, r->stream->connection)
+    if (ngx_http2_fingerprint(r, &fp)
             != NGX_OK)
     {
         return NGX_OK;
     }
 
-    v->data = r->stream->connection->fp_str.data;
-    v->len = r->stream->connection->fp_str.len;
+    v->data = fp.data;
+    v->len = fp.len;
     v->not_found = 0;
     v->valid = 1;
 
