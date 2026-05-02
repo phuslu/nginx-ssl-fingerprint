@@ -15,7 +15,7 @@ diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
 index 931ee79..a2d6ba3 100644
 --- a/include/openssl/tls1.h
 +++ b/include/openssl/tls1.h
-@@ -141,6 +141,13 @@ extern "C" {
+@@ -141,6 +141,14 @@ extern "C" {
  /* ExtensionType value from RFC7627 */
  #define TLSEXT_TYPE_extended_master_secret 23
  
@@ -23,8 +23,9 @@ index 931ee79..a2d6ba3 100644
 +# define TLSEXT_TYPE_status_request_v2           17
 +/* ExtensionType value from RFC8449 */
 +# define TLSEXT_TYPE_record_size_limit           28
-+/* ExtensionType value from RFC7639 */
-+# define TLSEXT_TYPE_application_settings        17513
++/* ExtensionType from draft-vvv-tls-alps; codepoint names follow BoringSSL */
++# define TLSEXT_TYPE_application_settings_old    17513
++# define TLSEXT_TYPE_application_settings        17613
 +
  /* ExtensionType value from RFC8879 */
  #define TLSEXT_TYPE_compress_certificate 27
@@ -213,12 +214,13 @@ diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
 index 8fc8b64..f67fbd6 100644
 --- a/ssl/ssl_local.h
 +++ b/ssl/ssl_local.h
-@@ -686,6 +686,9 @@ typedef enum tlsext_index_en {
+@@ -686,6 +686,10 @@ typedef enum tlsext_index_en {
      TLSEXT_IDX_compress_certificate,
      TLSEXT_IDX_early_data,
      TLSEXT_IDX_certificate_authorities,
 +    TLSEXT_IDX_status_request_v2,
 +    TLSEXT_IDX_record_size_limit,
++    TLSEXT_IDX_application_settings_old,
 +    TLSEXT_IDX_application_settings,
      TLSEXT_IDX_padding,
      TLSEXT_IDX_psk,
@@ -227,7 +229,7 @@ diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
 index 2de540f..02c36a6 100644
 --- a/ssl/statem/extensions.c
 +++ b/ssl/statem/extensions.c
-@@ -368,6 +368,21 @@ static const EXTENSION_DEFINITION ext_defs[] = {
+@@ -368,6 +368,26 @@ static const EXTENSION_DEFINITION ext_defs[] = {
          tls_construct_certificate_authorities,
          NULL,
      },
@@ -238,6 +240,11 @@ index 2de540f..02c36a6 100644
 +        NULL, NULL, NULL, NULL, NULL },
 +    {
 +        TLSEXT_TYPE_record_size_limit,
++        SSL_EXT_CLIENT_HELLO,
++        NULL,
++        NULL, NULL, NULL, NULL, NULL },
++    {
++        TLSEXT_TYPE_application_settings_old,
 +        SSL_EXT_CLIENT_HELLO,
 +        NULL,
 +        NULL, NULL, NULL, NULL, NULL },
