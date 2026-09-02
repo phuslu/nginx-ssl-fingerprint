@@ -811,7 +811,11 @@ int ngx_http2_fingerprint(ngx_connection_t *c, ngx_http_v2_connection_t *h2c)
         pstr = append_uint32(pstr, *(uint32_t*)(h2c->fp_settings.data+i+1));
         *pstr++ = ';';
     }
-    *(pstr-1) = '|';
+    if (h2c->fp_settings.len > 0) {
+        *(pstr-1) = '|';
+    } else {
+        *pstr++ = '|';
+    }
 
     /* windows update */
     pstr = append_uint32(pstr, h2c->fp_windowupdate);
