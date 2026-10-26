@@ -6,7 +6,7 @@ index 99ec654..4ce3c05 100644
  #endif
  
  
-+#define NGX_SSL_JA_DATA_SIZE 256 /* = (sizeof(uint16_t) * 128) */
++#define NGX_SSL_JA_DATA_SIZE 1024
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
  
  
