@@ -14,11 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # release-1.31.7 is deliberately absent: its patch predates the
-        # HTTP/2 settings struct-of-arrays rework and does not compile
-        # against the current module sources
         openssl: [openssl-3.6.2]
-        nginx: [release-1.29.8, release-1.30.0]
+        nginx: [release-1.29.8, release-1.30.0, release-1.31.7]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

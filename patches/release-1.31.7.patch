@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 9b82364..a277324 100644
+index 9b8236489..a27732493 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -14,6 +14,7 @@
@@ -66,7 +66,7 @@ index 9b82364..a277324 100644
                                    (const unsigned char **) &p, &len)
          == 0)
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 0107114..325d36c 100644
+index 010711481..325d36c83 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
 @@ -150,6 +150,12 @@ struct ngx_ssl_connection_s {
@@ -83,7 +83,7 @@ index 0107114..325d36c 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 35683ab..4638118 100644
+index 35683ab75..1a55710cd 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -305,6 +305,8 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -127,12 +127,12 @@ index 35683ab..4638118 100644
          }
      }
  
-+    if (!h2c->fp_fingerprinted && h2c->fp_priorities.len + 4 <= NGX_FP_V2_BUFFER_SIZE) {
-+        h2c->fp_priorities.data[h2c->fp_priorities.len] = (uint8_t)stream->node->id;
-+        h2c->fp_priorities.data[h2c->fp_priorities.len+1] = (uint8_t)fp_excl;
-+        h2c->fp_priorities.data[h2c->fp_priorities.len+2] = (uint8_t)fp_depend;
-+        h2c->fp_priorities.data[h2c->fp_priorities.len+3] = (uint8_t)(fp_weight-1);
-+        h2c->fp_priorities.len += 4;
++    if (priority) {
++        stream->fp_priority_sid = (uint32_t) stream->node->id;
++        stream->fp_priority_dep = (uint32_t) fp_depend;
++        stream->fp_priority_excl = (uint8_t) fp_excl;
++        stream->fp_priority_weight = (uint8_t) (fp_weight - 1);
++        stream->fp_priority_set = 1;
 +    }
 +
      return ngx_http_v2_state_header_block(h2c, pos, end);
@@ -142,8 +142,8 @@ index 35683ab..4638118 100644
      }
  
      if (header->name.data[0] == ':') {
-+        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < NGX_FP_V2_BUFFER_SIZE && header->name.len > 1)
-+            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
++        if (h2c->state.stream && h2c->state.stream->fp_pseudoheaders_len < 4 && header->name.len > 1)
++            h2c->state.stream->fp_pseudoheaders[h2c->state.stream->fp_pseudoheaders_len++] = header->name.data[1];
 +
          rc = ngx_http_v2_pseudo_header(r, header);
  
@@ -172,7 +172,7 @@ index 35683ab..4638118 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 797e3e8..9b7203e 100644
+index 797e3e8b1..d87157adb 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
 @@ -17,6 +17,9 @@
@@ -204,7 +204,7 @@ index 797e3e8..9b7203e 100644
  struct ngx_http_v2_connection_s {
      ngx_connection_t                *connection;
      ngx_http_connection_t           *http_connection;
-@@ -166,6 +181,12 @@ struct ngx_http_v2_connection_s {
+@@ -166,6 +181,11 @@ struct ngx_http_v2_connection_s {
      unsigned                         table_update:1;
      unsigned                         blocked:1;
      unsigned                         goaway:1;
@@ -213,7 +213,21 @@ index 797e3e8..9b7203e 100644
 +    ngx_http_v2_fp_settings_t        fp_settings;
 +    ngx_http_v2_fp_fixed_str_t       fp_priorities, fp_pseudoheaders;
 +    ngx_uint_t                       fp_windowupdate;
-+    ngx_str_t                        fp_str;
+ };
+ 
+ 
+@@ -220,6 +240,14 @@ struct ngx_http_v2_stream_s {
+     unsigned                         no_flow_control:1;
+     unsigned                         skip_data:1;
+     unsigned                         priority_update:1;
++
++    uint32_t                         fp_priority_sid;
++    uint32_t                         fp_priority_dep;
++    uint8_t                          fp_priority_excl;
++    uint8_t                          fp_priority_weight;
++    unsigned                         fp_priority_set:1;
++    u_char                           fp_pseudoheaders[4];
++    uint8_t                          fp_pseudoheaders_len;
  };
  
  
