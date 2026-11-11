@@ -42,7 +42,7 @@ jobs:
           ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-http_v2_module --without-http_rewrite_module --with-cc-opt="-O"
           make -j$(nproc)
       - name: Tests (base + fixed-issue regressions #84 #86 #92)
-        run: tests/run.sh
+        run: bash nginx-ssl-fingerprint/tests/run.sh
         env:
           NGINX_BIN: ${{ github.workspace }}/nginx/objs/nginx
           TESTS: "test_ja3.py test_ja4.py test_h2fp.py repro_86.py test_issue_84.py test_issue_92.py"
@@ -50,7 +50,7 @@ jobs:
       # step is expected to fail until the fix lands and turns green by
       # itself, without blocking the workflow.
       - name: Open-issue repro (#82)
-        run: tests/run.sh
+        run: bash nginx-ssl-fingerprint/tests/run.sh
         env:
           NGINX_BIN: ${{ github.workspace }}/nginx/objs/nginx
           TESTS: "test_issue_82.py"
