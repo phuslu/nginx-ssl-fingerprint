@@ -118,10 +118,10 @@ index efe2290..2891bc6 100644
          ngx_log_debug2(NGX_LOG_DEBUG_HTTP, h2c->connection->log, 0,
                         "http2 setting %ui:%ui", id, value);
  
-+        if (!h2c->fp_fingerprinted && h2c->fp_settings.len + 5 <= NGX_FP_V2_BUFFER_SIZE) {
-+            h2c->fp_settings.data[h2c->fp_settings.len] = (uint8_t)id;
-+            *(uint32_t*)(h2c->fp_settings.data + h2c->fp_settings.len + 1)  = (uint32_t)value;
-+            h2c->fp_settings.len += 5;
++        if (!h2c->fp_fingerprinted && h2c->fp_settings.len < NGX_FP_V2_SETTINGS_MAX) {
++            h2c->fp_settings.ids[h2c->fp_settings.len] = (uint16_t)id;
++            h2c->fp_settings.values[h2c->fp_settings.len] = (uint32_t)value;
++            h2c->fp_settings.len++;
 +        }
 +
          switch (id) {
@@ -141,16 +141,17 @@ diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
 index 9605c8a..026f3c7 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
-@@ -17,6 +17,8 @@
+@@ -17,6 +17,9 @@
  
  #define NGX_HTTP_V2_STATE_BUFFER_SIZE    16
  
 +#define NGX_FP_V2_BUFFER_SIZE            32
++#define NGX_FP_V2_SETTINGS_MAX           8
 +
  #define NGX_HTTP_V2_DEFAULT_FRAME_SIZE   (1 << 14)
  #define NGX_HTTP_V2_MAX_FRAME_SIZE       ((1 << 24) - 1)
  
-@@ -121,6 +123,12 @@ typedef struct {
+@@ -121,6 +124,18 @@ typedef struct {
  } ngx_http_v2_hpack_t;
  
  
@@ -159,19 +160,24 @@ index 9605c8a..026f3c7 100644
 +  size_t len;
 +} ngx_http_v2_fp_fixed_str_t;
 +
++typedef struct {
++  uint16_t   ids[NGX_FP_V2_SETTINGS_MAX];
++  uint32_t   values[NGX_FP_V2_SETTINGS_MAX];
++  ngx_uint_t len;
++} ngx_http_v2_fp_settings_t;
++
 +
  struct ngx_http_v2_connection_s {
      ngx_connection_t                *connection;
      ngx_http_connection_t           *http_connection;
-@@ -168,6 +176,13 @@ struct ngx_http_v2_connection_s {
+@@ -168,6 +183,12 @@ struct ngx_http_v2_connection_s {
      unsigned                         table_update:1;
      unsigned                         blocked:1;
      unsigned                         goaway:1;
 +
 +    unsigned                         fp_fingerprinted:1;
-+    ngx_http_v2_fp_fixed_str_t       fp_settings,
-+                                     fp_priorities,
-+                                     fp_pseudoheaders;
++    ngx_http_v2_fp_settings_t        fp_settings;
++    ngx_http_v2_fp_fixed_str_t       fp_priorities, fp_pseudoheaders;
 +    ngx_uint_t                       fp_windowupdate;
 +    ngx_str_t                        fp_str;
  };
