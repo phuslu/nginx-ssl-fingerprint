@@ -1,0 +1,58 @@
+name: tests
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  fingerprint-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # release-1.31.7 is deliberately absent: its patch predates the
+        # HTTP/2 settings struct-of-arrays rework and does not compile
+        # against the current module sources
+        openssl: [openssl-3.6.2]
+        nginx: [release-1.29.8, release-1.30.0]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: nginx-ssl-fingerprint
+      - name: Dependency
+        run: |
+          sudo apt update -y
+          sudo apt-get install -y zlib1g-dev
+      - name: Clone
+        run: |
+          git clone -b ${{ matrix.openssl }} --depth=1 https://github.com/openssl/openssl
+          git clone -b ${{ matrix.nginx }} --depth=1 https://github.com/nginx/nginx
+      - name: Patch
+        run: |
+          patch -p1 -d openssl < nginx-ssl-fingerprint/patches/${{ matrix.openssl }}.patch
+          patch -p1 -d nginx < nginx-ssl-fingerprint/patches/${{ matrix.nginx }}.patch
+      - name: Build
+        run: |
+          cd nginx
+          ./auto/configure --with-openssl=$(pwd)/../openssl --add-module=$(pwd)/../nginx-ssl-fingerprint --with-http_ssl_module --with-stream_ssl_module --with-debug --with-stream --with-http_v2_module --without-http_rewrite_module --with-cc-opt="-O"
+          make -j$(nproc)
+      - name: Tests (base + fixed-issue regressions #84 #86 #92)
+        run: tests/run.sh
+        env:
+          NGINX_BIN: ${{ github.workspace }}/nginx/objs/nginx
+          TESTS: "test_ja3.py test_ja4.py test_h2fp.py repro_86.py test_issue_84.py test_issue_92.py"
+      # The h2 per-request fingerprint (#82) is still an open issue; this
+      # step is expected to fail until the fix lands and turns green by
+      # itself, without blocking the workflow.
+      - name: Open-issue repro (#82)
+        run: tests/run.sh
+        env:
+          NGINX_BIN: ${{ github.workspace }}/nginx/objs/nginx
+          TESTS: "test_issue_82.py"
+          STRICT: "1"
+        continue-on-error: true
