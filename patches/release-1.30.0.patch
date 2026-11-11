@@ -99,12 +99,12 @@ index efe2290..a03b65f 100644
          }
      }
  
-+    if (!h2c->fp_fingerprinted && h2c->fp_priorities.len + 4 <= NGX_FP_V2_BUFFER_SIZE) {
-+        h2c->fp_priorities.data[h2c->fp_priorities.len] = (uint8_t)stream->node->id;
-+        h2c->fp_priorities.data[h2c->fp_priorities.len+1] = (uint8_t)excl;
-+        h2c->fp_priorities.data[h2c->fp_priorities.len+2] = (uint8_t)depend;
-+        h2c->fp_priorities.data[h2c->fp_priorities.len+3] = (uint8_t)(weight-1);
-+        h2c->fp_priorities.len += 4;
++    if (priority) {
++        stream->fp_priority_sid = (uint32_t)stream->node->id;
++        stream->fp_priority_dep = (uint32_t)depend;
++        stream->fp_priority_excl = (uint8_t)excl;
++        stream->fp_priority_weight = (uint8_t)(weight-1);
++        stream->fp_priority_set = 1;
 +    }
 +
      return ngx_http_v2_state_header_block(h2c, pos, end);
@@ -114,8 +114,8 @@ index efe2290..a03b65f 100644
      }
  
      if (header->name.data[0] == ':') {
-+        if (!h2c->fp_fingerprinted && h2c->fp_pseudoheaders.len < NGX_FP_V2_BUFFER_SIZE && header->name.len > 1)
-+            h2c->fp_pseudoheaders.data[h2c->fp_pseudoheaders.len++] = header->name.data[1];
++        if (h2c->state.stream && h2c->state.stream->fp_pseudoheaders_len < 4 && header->name.len > 1)
++            h2c->state.stream->fp_pseudoheaders[h2c->state.stream->fp_pseudoheaders_len++] = header->name.data[1];
 +
          rc = ngx_http_v2_pseudo_header(r, header);
  
@@ -176,7 +176,7 @@ index 9605c8a..5403db4 100644
  struct ngx_http_v2_connection_s {
      ngx_connection_t                *connection;
      ngx_http_connection_t           *http_connection;
-@@ -168,6 +183,12 @@ struct ngx_http_v2_connection_s {
+@@ -168,6 +183,11 @@ struct ngx_http_v2_connection_s {
      unsigned                         table_update:1;
      unsigned                         blocked:1;
      unsigned                         goaway:1;
@@ -185,7 +185,21 @@ index 9605c8a..5403db4 100644
 +    ngx_http_v2_fp_settings_t        fp_settings;
 +    ngx_http_v2_fp_fixed_str_t       fp_priorities, fp_pseudoheaders;
 +    ngx_uint_t                       fp_windowupdate;
-+    ngx_str_t                        fp_str;
+ };
+ 
+ 
+@@ -222,6 +234,14 @@ struct ngx_http_v2_stream_s {
+     unsigned                         rst_sent:1;
+     unsigned                         no_flow_control:1;
+     unsigned                         skip_data:1;
++
++    uint32_t                         fp_priority_sid;
++    uint32_t                         fp_priority_dep;
++    uint8_t                          fp_priority_excl;
++    uint8_t                          fp_priority_weight;
++    unsigned                         fp_priority_set:1;
++    u_char                           fp_pseudoheaders[4];
++    uint8_t                          fp_pseudoheaders_len;
  };
  
  
