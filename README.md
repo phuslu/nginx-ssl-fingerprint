@@ -21,7 +21,7 @@ A high performance nginx module for ja3 ja4 and http2 fingerprint.
 | Name              | Default Value | Comments                 |
 | ----------------- | ------------- | ------------------------ |
 | http_ssl_greased  | 0             | TLS greased flag.        |
-| http_ssl_ja3      | NULL          | The ja3 fingerprint.     |
+| http_ssl_ja3      | NULL          | The ja3 fingerprint, extensions sorted. |
 | http_ssl_ja3_hash | NULL          | The ja3 fingerprint hash.|
 | http_ssl_ja4      | NULL          | The ja4 fingerprint.     |
 | http2_fingerprint | NULL          | The http2 fingerprint.   |
@@ -41,12 +41,17 @@ http {
 }
 ```
 
+The ja3 string lists the extensions in ascending order, not in the wire order
+of the original JA3: Chromium based browsers shuffle the extensions on every
+connection, so the original JA3 of such a client never repeats. For clients
+that do not shuffle, the value differs from the one other JA3 tools print.
+
 ### Stream module variables
 
 | Name                | Default Value | Comments                 |
 | ------------------- | ------------- | ------------------------ |
 | stream_ssl_greased  | 0             | TLS greased flag.        |
-| stream_ssl_ja3      | NULL          | The ja3 fingerprint.     |
+| stream_ssl_ja3      | NULL          | The ja3 fingerprint, extensions sorted. |
 | stream_ssl_ja3_hash | NULL          | The ja3 fingerprint hash.|
 | stream_ssl_ja4      | NULL          | The ja4 fingerprint.     |
 
