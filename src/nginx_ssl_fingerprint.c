@@ -668,14 +668,6 @@ int ngx_ssl_ja4(ngx_connection_t *c)
                 }
             }
 
-            for (i = 1; i < sigalg_count; i++) {
-                n = hash_buf[i];
-                for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
-                    hash_buf[j] = hash_buf[j - 1];
-                }
-                hash_buf[j] = n;
-            }
-
             for (i = 0; i < sigalg_count; i++) {
                 hash_part[0] = hex[(hash_buf[i] >> 12) & 0xf];
                 hash_part[1] = hex[(hash_buf[i] >> 8) & 0xf];
