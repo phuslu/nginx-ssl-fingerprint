@@ -14,8 +14,12 @@ jobs:
     strategy:
       matrix:
         openssl: [openssl-3.5.6, openssl-3.6.2]
-        nginx: [release-1.29.8, release-1.30.0]
+        nginx: [release-1.29.8, release-1.30.0, release-1.31.7]
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: nginx-ssl-fingerprint
       - name: Dependency
         run: |
           sudo apt update -y
@@ -24,7 +28,6 @@ jobs:
         run: |
           git clone -b ${{ matrix.openssl }} --depth=1 https://github.com/openssl/openssl
           git clone -b ${{ matrix.nginx }} --depth=1 https://github.com/nginx/nginx
-          git clone -b master https://github.com/${GITHUB_REPOSITORY}
       - name: Patch
         run: |
           patch -p1 -d openssl < nginx-ssl-fingerprint/patches/${{ matrix.openssl }}.patch
