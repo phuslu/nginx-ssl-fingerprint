@@ -182,7 +182,7 @@ index 9605c8a..5403db4 100644
      unsigned                         goaway:1;
 +
 +    unsigned                         fp_fingerprinted:1;
-+    ngx_http_v2_fp_fixed_str_t       fp_settings;
++    ngx_http_v2_fp_settings_t        fp_settings;
 +    ngx_http_v2_fp_fixed_str_t       fp_priorities, fp_pseudoheaders;
 +    ngx_uint_t                       fp_windowupdate;
  };
