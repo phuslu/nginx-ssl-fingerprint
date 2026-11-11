@@ -887,13 +887,14 @@ int ngx_http2_fingerprint(ngx_http_request_t *r, ngx_str_t *out)
     size_t i, j;
     uint16_t id;
 
-    if (h2c->fp_str.len > 0) {
-        return NGX_OK;
-    }
-
+    /*
+     * 4 + settings * 17 ("id:value;" worst case) + 10 (window update)
+     * + 30 (per-request "sid:excl:dep:weight", sid/dep are uint32)
+     * + pseudo-headers * 2 + NUL
+     */
     n = 4 + h2c->fp_settings.len * 17
-        + 10 + h2c->fp_priorities.len * 4
-        + h2c->fp_pseudoheaders.len * 2;
+        + 10 + 30
+        + stream->fp_pseudoheaders_len * 2 + 1;
 
     out->data = ngx_pnalloc(r->pool, n);
     if (out->data == NULL) {
