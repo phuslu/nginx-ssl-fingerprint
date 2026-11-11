@@ -39,7 +39,7 @@ TEST_PORT="${TEST_PORT:-4433}"
 STREAM_PORT="${STREAM_PORT:-4443}"
 STRICT="${STRICT:-0}"
 
-BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py repro_86.py test_issue_84.py test_issue_92.py"
+BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py repro_86.py test_issue_84.py test_issue_92.py test_issue_56.py"
 KNOWN_TESTS="test_issue_82.py"
 TESTS="${TESTS:-$BASE_TESTS $KNOWN_TESTS}"
 KNOWN="${KNOWN:-$KNOWN_TESTS}"

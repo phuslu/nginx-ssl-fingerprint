@@ -16,6 +16,28 @@ A high performance nginx module for ja3 ja4 and http2 fingerprint.
 
 ## Configuration
 
+### Directives
+
+| Name    | Default | Context (http)                | Context (stream) | Comments |
+| ------- | ------- | ----------------------------- | ---------------- | -------- |
+| ngx_ja3 | on      | http, server, location        | stream, server   | Enable/disable the ja3 calculation; when off, `$http_ssl_ja3`, `$http_ssl_ja3_hash`, `$http_ssl_greased` (and the `$stream_ssl_*` counterparts) are not found. |
+| ngx_ja4 | on      | http, server, location        | stream, server   | Enable/disable the ja4 calculation; when off, `$http_ssl_ja4` is not found. |
+
+Useful for multi-tenant setups where only some virtual servers or
+locations need fingerprints.
+
+```nginx
+http {
+    server {
+        listen                 127.0.0.1:4433 ssl;
+        location /healthz/ {
+            ngx_ja3 off;             # no fingerprinting on hot probes
+            ngx_ja4 off;
+        }
+    }
+}
+```
+
 ### HTTP module variables
 
 | Name              | Default Value | Comments                 |
