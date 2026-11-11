@@ -1,0 +1,4 @@
+# local test artifacts, bootstrapped by run.sh
+.venv/
+tlsfuzzer/
+__pycache__/
