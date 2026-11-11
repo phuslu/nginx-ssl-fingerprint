@@ -668,14 +668,6 @@ int ngx_ssl_ja4(ngx_connection_t *c)
                 }
             }
 
-            for (i = 1; i < sigalg_count; i++) {
-                n = hash_buf[i];
-                for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
-                    hash_buf[j] = hash_buf[j - 1];
-                }
-                hash_buf[j] = n;
-            }
-
             for (i = 0; i < sigalg_count; i++) {
                 hash_part[0] = hex[(hash_buf[i] >> 12) & 0xf];
                 hash_part[1] = hex[(hash_buf[i] >> 8) & 0xf];
@@ -787,11 +779,16 @@ int ngx_http2_fingerprint(ngx_http_request_t *r, ngx_str_t *out)
     ngx_http_v2_connection_t  *h2c = stream->connection;
     unsigned char *pstr = NULL;
     unsigned short n = 0;
-    size_t i;
+    size_t i, j;
+    uint16_t id;
 
-    n = 4 + h2c->fp_settings.len * 3
-        + 10 + 30
-        + stream->fp_pseudoheaders_len * 2;
+    if (h2c->fp_str.len > 0) {
+        return NGX_OK;
+    }
+
+    n = 4 + h2c->fp_settings.len * 17
+        + 10 + h2c->fp_priorities.len * 4
+        + h2c->fp_pseudoheaders.len * 2;
 
     out->data = ngx_pnalloc(r->pool, n);
     if (out->data == NULL) {
@@ -803,13 +800,19 @@ int ngx_http2_fingerprint(ngx_http_request_t *r, ngx_str_t *out)
     ngx_log_debug(NGX_LOG_DEBUG_EVENT, r->connection->log, 0, "ngx_http2_fingerprint: alloc bytes: [%d]\n", n);
 
     /* setting */
-    for (i = 0; i < h2c->fp_settings.len; i+=5) {
-        pstr = append_uint8(pstr, h2c->fp_settings.data[i]);
+    for (i = 0, j = 0; i < h2c->fp_settings.len; i++) {
+        id = h2c->fp_settings.ids[i];
+        if (IS_GREASE_CODE(id)) {
+            continue;
+        }
+        if (j++ > 0) {
+            *pstr++ = ';';
+        }
+        pstr = append_uint16(pstr, id);
         *pstr++ = ':';
-        pstr = append_uint32(pstr, *(uint32_t*)(h2c->fp_settings.data+i+1));
-        *pstr++ = ';';
+        pstr = append_uint32(pstr, h2c->fp_settings.values[i]);
     }
-    *(pstr-1) = '|';
+    *pstr++ = '|';
 
     /* windows update */
     pstr = append_uint32(pstr, h2c->fp_windowupdate);
