@@ -30,7 +30,7 @@ dependencies are bootstrapped once into `.venv`/`tlsfuzzer`.
 | `test_issue_84.py`| must pass    | regression for [#84](https://github.com/phuslu/nginx-ssl-fingerprint/issues/84) (fixed): the new ALPS codepoint 17613 is fingerprinted |
 | `test_issue_92.py`| must pass    | regression for [#92](https://github.com/phuslu/nginx-ssl-fingerprint/issues/92) (fixed): ECH 0xfe0d + ALPS 17613 (Chrome-like) are fingerprinted |
 | `test_issue_56.py`| must pass    | [#56](https://github.com/phuslu/nginx-ssl-fingerprint/issues/56): `ngx_ja3`/`ngx_ja4` directives disable the right variables per location |
-| `test_issue_82.py`| known issue  | [#82](https://github.com/phuslu/nginx-ssl-fingerprint/issues/82): the h2 fingerprint must be per-request on multiplexed connections |
+| `test_issue_82.py`| must pass  | [#82](https://github.com/phuslu/nginx-ssl-fingerprint/issues/82): the h2 fingerprint must be per-request on multiplexed connections |
 
 Known-issue tests are repros for open upstream bugs: `run.sh` reports
 them as XFAIL and does not fail (unless `STRICT=1`); once a fix lands a

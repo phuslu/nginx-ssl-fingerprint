@@ -1,6 +1,6 @@
 
 #
-# JA3 module conf
+# JA3/JA4 module conf
 #
 
 ngx_addon_name=ngx_ssl_fingerprint_module
