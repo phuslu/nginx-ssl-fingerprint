@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Dependency
         run: |
-          sudo apt update -y && sudo apt-get install -y libpcre3 libpcre3-dev
+          sudo apt update -y && sudo apt-get install -y libpcre2 libpcre2-dev
       - name: Clone
         run: |
           git clone -b ${{ matrix.openssl }} --depth=1 https://github.com/openssl/openssl
