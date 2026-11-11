@@ -11,197 +11,168 @@ index bdcc685..0dcdd10 100644
  int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts,
      size_t *num_exts);
  int SSL_client_hello_get0_ext(SSL *s, unsigned int type,
-diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
-index 931ee79..a2d6ba3 100644
---- a/include/openssl/tls1.h
-+++ b/include/openssl/tls1.h
-@@ -141,6 +141,13 @@ extern "C" {
- /* ExtensionType value from RFC7627 */
- #define TLSEXT_TYPE_extended_master_secret 23
- 
-+/* ExtensionType value from RFC6961 */
-+# define TLSEXT_TYPE_status_request_v2           17
-+/* ExtensionType value from RFC8449 */
-+# define TLSEXT_TYPE_record_size_limit           28
-+/* ExtensionType value from RFC7639 */
-+# define TLSEXT_TYPE_application_settings        17513
-+
- /* ExtensionType value from RFC8879 */
- #define TLSEXT_TYPE_compress_certificate 27
- 
 diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
-index 05b0209..9723cc2 100644
+index 05b0209..d6635e5 100644
 --- a/ssl/ssl_lib.c
 +++ b/ssl/ssl_lib.c
-@@ -6845,6 +6845,175 @@ err:
+@@ -6845,6 +6845,164 @@ err:
      return 0;
  }
  
-+size_t SSL_client_hello_get_ja_data(SSL *s, unsigned char *data,
-+        size_t data_size)
++static int ja_data_put_uint16(unsigned char **ptr, const unsigned char *end,
++                              uint16_t n)
 +{
-+    RAW_EXTENSION *ext;
-+    const unsigned char *ext_data = NULL;
-+    PACKET *groups = NULL, *formats = NULL,
-+            *sigalgs = NULL, *supvers = NULL,
-+            *alpn = NULL;
-+    size_t num = 0, i;
-+    uint16_t version = 0, n;
-+    unsigned char *ptr = data,
-+                  *end = data + data_size;
++    if ((size_t)(end - *ptr) < sizeof(n))
++        return 0;
++
++    memcpy(*ptr, &n, sizeof(n));
++    *ptr += sizeof(n);
++
++    return 1;
++}
++
++static int ja_data_put_list(unsigned char **ptr, const unsigned char *end,
++                            const unsigned char *body, size_t len,
++                            size_t lensize)
++{
++    if (body == NULL || len < lensize)
++        len = 0;
++
++    if (lensize == sizeof(uint8_t) && len > 0xff)
++        len = 0xff;
++
++    if (len == 0) {
++        if ((size_t)(end - *ptr) < lensize)
++            return 0;
++        memset(*ptr, 0, lensize);
++        *ptr += lensize;
++        return 1;
++    }
++
++    if ((size_t)(end - *ptr) < len)
++        return 0;
++
++    if (lensize == sizeof(uint8_t)) {
++        **ptr = (unsigned char)len;
++    } else {
++        uint16_t n = (uint16_t)len;
++
++        memcpy(*ptr, &n, sizeof(n));
++    }
++    memcpy(*ptr + lensize, body + lensize, len - lensize);
++    *ptr += len;
++
++    return 1;
++}
++
++size_t SSL_client_hello_get_ja_data(SSL *s, unsigned char *data,
++                                    size_t data_size)
++{
 +    const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
++    const unsigned char *groups = NULL, *formats = NULL, *sigalgs = NULL,
++                        *supvers = NULL, *alpn = NULL;
++    size_t groups_len = 0, formats_len = 0, sigalgs_len = 0,
++           supvers_len = 0, alpn_len = 0;
++    size_t num, i;
++    unsigned int type;
++    uint16_t version = 0, n;
++    unsigned char *ptr = data, *exts_len;
++    const unsigned char *end;
++    PACKET exts, ext;
 +
-+    if (sc == NULL)
++    if (sc == NULL || sc->clienthello == NULL || data == NULL)
 +        return 0;
 +
-+    if (ossl_unlikely(sc->clienthello == NULL || data == NULL
-+                /** just checking that we have at least this */
-+                || data_size < 128))
++    end = data + data_size;
++
++    if (!ja_data_put_uint16(&ptr, end,
++                            (uint16_t)sc->clienthello->legacy_version))
 +        return 0;
 +
-+    /* version */
-+    *(uint16_t *) ptr = (uint16_t) sc->clienthello->legacy_version;
-+    ptr += sizeof(uint16_t);
-+
-+    /* ciphers */
 +    num = PACKET_remaining(&sc->clienthello->ciphersuites);
-+    if (ossl_unlikely(ptr + sizeof(uint16_t) + num > end))
++    if (num > 0xffff
++        || !ja_data_put_uint16(&ptr, end, (uint16_t)num)
++        || (size_t)(end - ptr) < num)
 +        return 0;
-+    *(uint16_t *) ptr = (uint16_t) num;
-+    ptr += sizeof(uint16_t);
-+    if (ossl_likely(num > 0)) {
++    if (num > 0) {
 +        memcpy(ptr, PACKET_data(&sc->clienthello->ciphersuites), num);
 +        ptr += num;
 +    }
 +
-+    /* extensions */
-+    num = 0;
-+    for (i = 0; i < sc->clienthello->pre_proc_exts_len; i++) {
-+        ext = sc->clienthello->pre_proc_exts + i;
-+        if (ext->present)
-+            num++;
-+    }
-+
-+    num = num * 2;
-+    if (ossl_unlikely((ptr + num + sizeof(uint16_t)) > end))
++    exts_len = ptr;
++    if (!ja_data_put_uint16(&ptr, end, 0))
 +        return 0;
 +
-+    *(uint16_t*) ptr = (uint16_t) num;
-+    ptr += sizeof(uint16_t);
++    exts = sc->clienthello->extensions;
++    while (PACKET_remaining(&exts) > 0) {
++        if (!PACKET_get_net_2(&exts, &type)
++            || !PACKET_get_length_prefixed_2(&exts, &ext)
++            || !ja_data_put_uint16(&ptr, end, (uint16_t)type))
++            return 0;
 +
-+    for (i = 0; i < sc->clienthello->pre_proc_exts_len; i++) {
-+        ext = sc->clienthello->pre_proc_exts + i;
-+        if (ext->present) {
-+            if (ext->received_order >= num)
-+                break;
-+            if (ossl_likely(ext->received_order < data_size)) {
-+                ((uint16_t*)(ptr))[ext->received_order] = (uint16_t) ext->type;
++        switch (type) {
++        case TLSEXT_TYPE_supported_groups:
++            if (groups == NULL) {
++                groups = PACKET_data(&ext);
++                groups_len = PACKET_remaining(&ext);
 +            }
-+            switch (ext->type) {
-+            case TLSEXT_TYPE_supported_groups:
-+                groups = &ext->data;
-+                break;
-+            case TLSEXT_TYPE_ec_point_formats:
-+                formats = &ext->data;
-+                break;
-+            case TLSEXT_TYPE_signature_algorithms:
-+                sigalgs = &ext->data;
-+                break;
-+            case TLSEXT_TYPE_supported_versions:
-+                supvers = &ext->data;
-+                break;
-+            case TLSEXT_TYPE_application_layer_protocol_negotiation:
-+                alpn = &ext->data;
-+                break;
++            break;
++        case TLSEXT_TYPE_ec_point_formats:
++            if (formats == NULL) {
++                formats = PACKET_data(&ext);
++                formats_len = PACKET_remaining(&ext);
 +            }
++            break;
++        case TLSEXT_TYPE_signature_algorithms:
++            if (sigalgs == NULL) {
++                sigalgs = PACKET_data(&ext);
++                sigalgs_len = PACKET_remaining(&ext);
++            }
++            break;
++        case TLSEXT_TYPE_supported_versions:
++            if (supvers == NULL) {
++                supvers = PACKET_data(&ext);
++                supvers_len = PACKET_remaining(&ext);
++            }
++            break;
++        case TLSEXT_TYPE_application_layer_protocol_negotiation:
++            if (alpn == NULL) {
++                alpn = PACKET_data(&ext);
++                alpn_len = PACKET_remaining(&ext);
++            }
++            break;
 +        }
 +    }
 +
-+    ptr += num;
++    num = ptr - exts_len - sizeof(n);
++    if (num > 0xffff)
++        return 0;
++    n = (uint16_t)num;
++    memcpy(exts_len, &n, sizeof(n));
 +
-+    /* groups */
-+    if (groups
-+        && (num = PACKET_remaining(groups)) > 0)
-+    {
-+        if (ossl_unlikely((ptr + num + sizeof(uint16_t)) > end))
-+            return 0;
-+        memcpy(ptr, PACKET_data(groups), num);
-+        *(uint16_t*) ptr = (uint16_t) num;
-+        ptr += num;
-+    } else {
-+        if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
-+            return 0;
-+        *(uint16_t *) ptr = (uint16_t) 0;
-+        ptr += sizeof(uint16_t);
-+    }
++    if (!ja_data_put_list(&ptr, end, groups, groups_len, sizeof(uint16_t)))
++        return 0;
 +
-+    /* formats */
-+    if (formats
-+        && (num = PACKET_remaining(formats)) > 0)
-+    {
-+        if (ossl_unlikely((ptr + num + sizeof(uint8_t)) > end))
-+            return 0;
-+        memcpy(ptr, PACKET_data(formats), num);
-+        *(uint8_t *) ptr = (uint8_t) num;
-+        ptr += num;
-+    } else {
-+        if (ossl_unlikely(ptr + sizeof(uint8_t) > end))
-+            return 0;
-+        *(uint8_t *) ptr = (uint8_t) 0;
-+        ptr += sizeof(uint8_t);
-+    }
++    if (!ja_data_put_list(&ptr, end, formats, formats_len, sizeof(uint8_t)))
++        return 0;
 +
-+    /* supported version */
-+    if (supvers
-+        && (num = PACKET_remaining(supvers)) >= 3)
-+    {
-+        ext_data = PACKET_data(supvers);
-+        for (i = 1; i + 1 < num && i <= ext_data[0]; i += 2) {
-+            n = ((uint16_t) ext_data[i] << 8) | (uint16_t) ext_data[i + 1];
++    if (supvers != NULL && supvers_len >= 3) {
++        for (i = 1; i + 1 < supvers_len && i + 1 <= supvers[0]; i += 2) {
++            n = ((uint16_t)supvers[i] << 8) | (uint16_t)supvers[i + 1];
 +            if (((n & 0x0f0f) != 0x0a0a || (n & 0xff) != (n >> 8))
 +                && n > version)
-+            {
 +                version = n;
-+            }
 +        }
 +    }
 +
-+    if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
++    if (!ja_data_put_uint16(&ptr, end, version))
 +        return 0;
-+    *(uint16_t *) ptr = version;
-+    ptr += sizeof(uint16_t);
 +
-+    /* signature algorithms */
-+    if (sigalgs
-+        && (num = PACKET_remaining(sigalgs)) > 0)
-+    {
-+        if (ossl_unlikely(ptr + num > end))
-+            return 0;
-+        memcpy(ptr, PACKET_data(sigalgs), num);
-+        *(uint16_t *) ptr = (uint16_t) num;
-+        ptr += num;
-+    } else {
-+        if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
-+            return 0;
-+        *(uint16_t *) ptr = (uint16_t) 0;
-+        ptr += sizeof(uint16_t);
-+    }
++    if (!ja_data_put_list(&ptr, end, sigalgs, sigalgs_len, sizeof(uint16_t)))
++        return 0;
 +
-+    /* alpn */
-+    if (alpn
-+        && (num = PACKET_remaining(alpn)) > 0)
-+    {
-+        if (ossl_unlikely(ptr + num > end))
-+            return 0;
-+        memcpy(ptr, PACKET_data(alpn), num);
-+        *(uint16_t *) ptr = (uint16_t) num;
-+        ptr += num;
-+    } else {
-+        if (ossl_unlikely(ptr + sizeof(uint16_t) > end))
-+            return 0;
-+        *(uint16_t *) ptr = (uint16_t) 0;
-+        ptr += sizeof(uint16_t);
-+    }
++    if (!ja_data_put_list(&ptr, end, alpn, alpn_len, sizeof(uint16_t)))
++        return 0;
 +
 +    return ptr - data;
 +}
@@ -209,43 +180,3 @@ index 05b0209..9723cc2 100644
  int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts, size_t *num_exts)
  {
      RAW_EXTENSION *ext;
-diff --git a/ssl/ssl_local.h b/ssl/ssl_local.h
-index 8fc8b64..f67fbd6 100644
---- a/ssl/ssl_local.h
-+++ b/ssl/ssl_local.h
-@@ -686,6 +686,9 @@ typedef enum tlsext_index_en {
-     TLSEXT_IDX_compress_certificate,
-     TLSEXT_IDX_early_data,
-     TLSEXT_IDX_certificate_authorities,
-+    TLSEXT_IDX_status_request_v2,
-+    TLSEXT_IDX_record_size_limit,
-+    TLSEXT_IDX_application_settings,
-     TLSEXT_IDX_padding,
-     TLSEXT_IDX_psk,
-     /* Dummy index - must always be the last entry */
-diff --git a/ssl/statem/extensions.c b/ssl/statem/extensions.c
-index 2de540f..02c36a6 100644
---- a/ssl/statem/extensions.c
-+++ b/ssl/statem/extensions.c
-@@ -368,6 +368,21 @@ static const EXTENSION_DEFINITION ext_defs[] = {
-         tls_construct_certificate_authorities,
-         NULL,
-     },
-+    {
-+        TLSEXT_TYPE_status_request_v2,
-+        SSL_EXT_CLIENT_HELLO,
-+        NULL,
-+        NULL, NULL, NULL, NULL, NULL },
-+    {
-+        TLSEXT_TYPE_record_size_limit,
-+        SSL_EXT_CLIENT_HELLO,
-+        NULL,
-+        NULL, NULL, NULL, NULL, NULL },
-+    {
-+        TLSEXT_TYPE_application_settings,
-+        SSL_EXT_CLIENT_HELLO,
-+        NULL,
-+        NULL, NULL, NULL, NULL, NULL },
-     { /* Must be immediately before pre_shared_key */
-         TLSEXT_TYPE_padding,
-         SSL_EXT_CLIENT_HELLO,

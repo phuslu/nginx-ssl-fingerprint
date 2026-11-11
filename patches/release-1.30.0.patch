@@ -1,24 +1,26 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 99ec654..4ce3c05 100644
+index 99ec654..8d99d04 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -14,6 +14,7 @@
  #endif
  
  
-+#define NGX_SSL_JA_DATA_SIZE 256 /* = (sizeof(uint16_t) * 128) */
++#define NGX_SSL_JA_DATA_SIZE  1024
  #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
  
  
-@@ -2011,6 +2012,38 @@ ngx_ssl_set_client_hello_callback(ngx_ssl_t *ssl, ngx_ssl_client_hello_arg *cb)
+@@ -2011,6 +2012,44 @@ ngx_ssl_set_client_hello_callback(ngx_ssl_t *ssl, ngx_ssl_client_hello_arg *cb)
  
  #ifdef SSL_CLIENT_HELLO_SUCCESS
  
 +static void
 +ngx_ssl_client_hello_ja_cb(SSL *ssl)
 +{
-+    ngx_connection_t  *c;
++    size_t             len;
++    u_char             buf[NGX_SSL_JA_DATA_SIZE];
 +    ngx_str_t         *ja;
++    ngx_connection_t  *c;
 +
 +    c = ngx_ssl_get_connection(ssl);
 +
@@ -27,29 +29,33 @@ index 99ec654..4ce3c05 100644
 +    }
 +
 +    ja = &c->ssl->fp_ja_data;
-+    ja->len = NGX_SSL_JA_DATA_SIZE;
 +
-+    ja->data = ngx_pnalloc(c->pool, NGX_SSL_JA_DATA_SIZE);
-+    if (ja->data == NULL) {
-+        ja->len = 0;
++    if (ja->data != NULL) {
 +        return;
 +    }
 +
-+    ja->len = SSL_client_hello_get_ja_data(ssl, ja->data,
-+                                            NGX_SSL_JA_DATA_SIZE);
-+    if (ja->len == 0) {
++    len = SSL_client_hello_get_ja_data(ssl, buf, NGX_SSL_JA_DATA_SIZE);
++    if (len == 0) {
 +        ngx_log_error(NGX_LOG_WARN, c->log, 0, "SSL_client_hello_get_ja_data "
 +                "seems the buffer size is less that number of fileds; "
 +                "for this SSL connection can't get a ja3 hash string");
-+        ja->data = NULL;
++        return;
 +    }
++
++    ja->data = ngx_pnalloc(c->pool, len);
++    if (ja->data == NULL) {
++        return;
++    }
++
++    ngx_memcpy(ja->data, buf, len);
++    ja->len = len;
 +}
 +
 +
  int
  ngx_ssl_client_hello_callback(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
  {
-@@ -2025,6 +2058,9 @@ ngx_ssl_client_hello_callback(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
+@@ -2025,6 +2064,9 @@ ngx_ssl_client_hello_callback(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
      cb = SSL_CTX_get_ex_data(c->ssl->session_ctx,
                               ngx_ssl_client_hello_arg_index);
  
@@ -60,7 +66,7 @@ index 99ec654..4ce3c05 100644
                                    (const unsigned char **) &p, &len)
          == 0)
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 79ae395..bc73ef6 100644
+index 79ae395..ff7ceed 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
 @@ -149,6 +149,12 @@ struct ngx_ssl_connection_s {
@@ -77,7 +83,7 @@ index 79ae395..bc73ef6 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index efe2290..2891bc6 100644
+index efe2290..a03b65f 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -307,6 +307,8 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -138,7 +144,7 @@ index efe2290..2891bc6 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 9605c8a..026f3c7 100644
+index 9605c8a..5403db4 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
 @@ -17,6 +17,9 @@
