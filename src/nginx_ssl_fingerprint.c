@@ -944,8 +944,11 @@ int ngx_http2_fingerprint(ngx_http_request_t *r, ngx_str_t *out)
         *pstr++ = ',';
     }
 
-    /* null terminator */
-    *--pstr = 0;
+    /* null terminator, over the trailing ',' if there is one */
+    if (stream->fp_pseudoheaders_len > 0) {
+        pstr--;
+    }
+    *pstr = 0;
 
     out->len = pstr - out->data;
 

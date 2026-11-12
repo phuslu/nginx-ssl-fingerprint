@@ -26,6 +26,7 @@ dependencies are bootstrapped once into `.venv`/`tlsfuzzer`.
 | `test_ja3.py`     | must pass    | exact JA3 string + MD5 hash + greased flag of a known ClientHello (GREASE filtering, sorted extension list) |
 | `test_ja4.py`     | must pass    | exact JA4 of a known ClientHello, hashes recomputed independently per the JA4 algorithm |
 | `test_h2fp.py`    | must pass    | exact HTTP/2 fingerprint of a controlled SETTINGS/WINDOW_UPDATE/HEADERS sequence |
+| `test_h2fp_no_pseudo.py` | must pass | HTTP/2 fingerprint of a request without pseudo-headers keeps its empty last section |
 | `repro_86.py`     | must pass    | regression for [#86](https://github.com/phuslu/nginx-ssl-fingerprint/issues/86) (fixed): extensions unknown to OpenSSL are fingerprinted |
 | `test_issue_84.py`| must pass    | regression for [#84](https://github.com/phuslu/nginx-ssl-fingerprint/issues/84) (fixed): the new ALPS codepoint 17613 is fingerprinted |
 | `test_issue_92.py`| must pass    | regression for [#92](https://github.com/phuslu/nginx-ssl-fingerprint/issues/92) (fixed): ECH 0xfe0d + ALPS 17613 (Chrome-like) are fingerprinted |
