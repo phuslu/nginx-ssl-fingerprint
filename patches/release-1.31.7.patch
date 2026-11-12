@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 9b8236489..a27732493 100644
+index 9b82364..a277324 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -14,6 +14,7 @@
@@ -66,7 +66,7 @@ index 9b8236489..a27732493 100644
                                    (const unsigned char **) &p, &len)
          == 0)
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 010711481..325d36c83 100644
+index 0107114..325d36c 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
 @@ -150,6 +150,12 @@ struct ngx_ssl_connection_s {
@@ -83,7 +83,7 @@ index 010711481..325d36c83 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 35683ab75..1a55710cd 100644
+index 35683ab..1a55710 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -305,6 +305,8 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -172,28 +172,22 @@ index 35683ab75..1a55710cd 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 797e3e8b1..d87157adb 100644
+index 797e3e8..00c8cf5 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
-@@ -17,6 +17,9 @@
+@@ -17,6 +17,8 @@
  
  #define NGX_HTTP_V2_STATE_BUFFER_SIZE    16
  
-+#define NGX_FP_V2_BUFFER_SIZE            32
 +#define NGX_FP_V2_SETTINGS_MAX           8
 +
  #define NGX_HTTP_V2_DEFAULT_FRAME_SIZE   (1 << 14)
  #define NGX_HTTP_V2_MAX_FRAME_SIZE       ((1 << 24) - 1)
  
-@@ -121,6 +124,18 @@ typedef struct {
+@@ -121,6 +123,13 @@ typedef struct {
  } ngx_http_v2_hpack_t;
  
  
-+typedef struct {
-+  u_char data[NGX_FP_V2_BUFFER_SIZE];
-+  size_t len;
-+} ngx_http_v2_fp_fixed_str_t;
-+
 +typedef struct {
 +  uint16_t   ids[NGX_FP_V2_SETTINGS_MAX];
 +  uint32_t   values[NGX_FP_V2_SETTINGS_MAX];
@@ -204,19 +198,18 @@ index 797e3e8b1..d87157adb 100644
  struct ngx_http_v2_connection_s {
      ngx_connection_t                *connection;
      ngx_http_connection_t           *http_connection;
-@@ -166,6 +181,11 @@ struct ngx_http_v2_connection_s {
+@@ -166,6 +175,10 @@ struct ngx_http_v2_connection_s {
      unsigned                         table_update:1;
      unsigned                         blocked:1;
      unsigned                         goaway:1;
 +
 +    unsigned                         fp_fingerprinted:1;
 +    ngx_http_v2_fp_settings_t        fp_settings;
-+    ngx_http_v2_fp_fixed_str_t       fp_priorities, fp_pseudoheaders;
 +    ngx_uint_t                       fp_windowupdate;
  };
  
  
-@@ -220,6 +240,14 @@ struct ngx_http_v2_stream_s {
+@@ -220,6 +233,14 @@ struct ngx_http_v2_stream_s {
      unsigned                         no_flow_control:1;
      unsigned                         skip_data:1;
      unsigned                         priority_update:1;
