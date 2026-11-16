@@ -83,7 +83,7 @@ index 79ae395..ff7ceed 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index efe2290..a03b65f 100644
+index efe2290..73fde11 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -307,6 +307,8 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -144,28 +144,22 @@ index efe2290..a03b65f 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index 9605c8a..5403db4 100644
+index 9605c8a..e37699e 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
-@@ -17,6 +17,9 @@
+@@ -17,6 +17,8 @@
  
  #define NGX_HTTP_V2_STATE_BUFFER_SIZE    16
  
-+#define NGX_FP_V2_BUFFER_SIZE            32
 +#define NGX_FP_V2_SETTINGS_MAX           8
 +
  #define NGX_HTTP_V2_DEFAULT_FRAME_SIZE   (1 << 14)
  #define NGX_HTTP_V2_MAX_FRAME_SIZE       ((1 << 24) - 1)
  
-@@ -121,6 +124,18 @@ typedef struct {
+@@ -121,6 +123,13 @@ typedef struct {
  } ngx_http_v2_hpack_t;
  
  
-+typedef struct {
-+  u_char data[NGX_FP_V2_BUFFER_SIZE];
-+  size_t len;
-+} ngx_http_v2_fp_fixed_str_t;
-+
 +typedef struct {
 +  uint16_t   ids[NGX_FP_V2_SETTINGS_MAX];
 +  uint32_t   values[NGX_FP_V2_SETTINGS_MAX];
@@ -176,19 +170,18 @@ index 9605c8a..5403db4 100644
  struct ngx_http_v2_connection_s {
      ngx_connection_t                *connection;
      ngx_http_connection_t           *http_connection;
-@@ -168,6 +176,11 @@ struct ngx_http_v2_connection_s {
+@@ -168,6 +177,10 @@ struct ngx_http_v2_connection_s {
      unsigned                         table_update:1;
      unsigned                         blocked:1;
      unsigned                         goaway:1;
 +
 +    unsigned                         fp_fingerprinted:1;
 +    ngx_http_v2_fp_settings_t        fp_settings;
-+    ngx_http_v2_fp_fixed_str_t       fp_priorities, fp_pseudoheaders;
 +    ngx_uint_t                       fp_windowupdate;
  };
  
  
-@@ -222,6 +234,14 @@ struct ngx_http_v2_stream_s {
+@@ -222,6 +235,14 @@ struct ngx_http_v2_stream_s {
      unsigned                         rst_sent:1;
      unsigned                         no_flow_control:1;
      unsigned                         skip_data:1;
