@@ -3,10 +3,10 @@
 
 https://github.com/phuslu/nginx-ssl-fingerprint/issues/82
 
-The module stores the priority/pseudo-header sections of the HTTP/2
-fingerprint on the connection struct and freezes them after the first
-request, so on a multiplexed connection every subsequent request logs
-request 1's HEADERS-priority data.
+Regression test (fixed in #81).  The priority/pseudo-header sections of
+the HTTP/2 fingerprint used to live on the connection struct and froze
+after the first request, so on a multiplexed connection every subsequent
+request logged request 1's HEADERS-priority data.
 
 Sends two requests with deliberately different per-request inputs over
 ONE h2 connection:

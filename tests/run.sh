@@ -7,12 +7,11 @@
 #
 # Test classes:
 #   required    test_ja3.py test_ja4.py test_h2fp.py plus regression tests
-#               for fixed issues (#86 #84 #92) - must pass on any correct
-#               build of the current sources
-#   known issues  test_issue_82.py
-#               repro for an open upstream issue; expected to FAIL until
-#               the corresponding fix lands.  Reported as XFAIL and does
-#               not fail this script unless STRICT=1.
+#               for fixed issues (#56 #82 #84 #86 #92) - must pass on any
+#               correct build of the current sources
+#   known issues  none at the moment; a repro for an open upstream issue
+#               goes into KNOWN_TESTS, is expected to FAIL until the fix
+#               lands, and is reported as XFAIL (fails only with STRICT=1)
 #
 # Environment:
 #   NGINX_BIN   path to the compiled nginx binary
@@ -39,8 +38,8 @@ TEST_PORT="${TEST_PORT:-4433}"
 STREAM_PORT="${STREAM_PORT:-4443}"
 STRICT="${STRICT:-0}"
 
-BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py repro_86.py test_issue_84.py test_issue_92.py test_issue_56.py"
-KNOWN_TESTS="test_issue_82.py"
+BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py test_h2fp_no_pseudo.py repro_86.py test_issue_82.py test_issue_84.py test_issue_92.py test_issue_56.py"
+KNOWN_TESTS=""
 TESTS="${TESTS:-$BASE_TESTS $KNOWN_TESTS}"
 KNOWN="${KNOWN:-$KNOWN_TESTS}"
 
