@@ -7,7 +7,7 @@
 #
 # Test classes:
 #   required    test_ja3.py test_ja4.py test_h2fp.py plus regression tests
-#               for fixed issues (#56 #82 #84 #86 #92) - must pass on any
+#               for fixed issues (#56 #82 #84 #86 #92 #99) - must pass on any
 #               correct build of the current sources
 #   known issues  none at the moment; a repro for an open upstream issue
 #               goes into KNOWN_TESTS, is expected to FAIL until the fix
@@ -38,7 +38,7 @@ TEST_PORT="${TEST_PORT:-4433}"
 STREAM_PORT="${STREAM_PORT:-4443}"
 STRICT="${STRICT:-0}"
 
-BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py test_h2fp_no_pseudo.py repro_86.py test_issue_82.py test_issue_84.py test_issue_92.py test_issue_56.py"
+BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py test_h2fp_no_pseudo.py repro_86.py test_issue_82.py test_issue_84.py test_issue_92.py test_issue_56.py test_issue_99.py"
 KNOWN_TESTS=""
 TESTS="${TESTS:-$BASE_TESTS $KNOWN_TESTS}"
 KNOWN="${KNOWN:-$KNOWN_TESTS}"
