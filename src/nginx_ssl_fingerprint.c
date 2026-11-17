@@ -32,6 +32,69 @@ ngx_ssl_fp_pool(ngx_connection_t *c)
     return c->pool;
 }
 
+/*
+ * insertion sort for short lists (typical extension lists), heapsort above:
+ * bounded O(n log n) on client-controlled input
+ */
+#define NGX_SSL_FP_SORT_INSERTION_MAX  32
+
+static ngx_inline void
+ngx_ssl_fp_sort_uint16(uint16_t *a, size_t n)
+{
+    size_t    i, j, end, root, child;
+    uint16_t  v;
+
+    if (n <= NGX_SSL_FP_SORT_INSERTION_MAX) {
+        for (i = 1; i < n; i++) {
+            v = a[i];
+            for (j = i; j > 0 && a[j - 1] > v; j--) {
+                a[j] = a[j - 1];
+            }
+            a[j] = v;
+        }
+
+        return;
+    }
+
+    /*
+     * heapsort in one loop: sift a[n / 2 - 1] .. a[0] down to build a max-heap,
+     * then move the root to a[end] and sift the old a[end] down from a[0]
+     */
+    i = n / 2;
+    end = n;
+
+    for ( ;; ) {
+        if (i > 0) {
+            v = a[--i];
+        } else {
+            if (--end == 0) {
+                return;
+            }
+            v = a[end];
+            a[end] = a[0];
+        }
+
+        /*
+         * pick the larger child without a branch: the compare is
+         * unpredictable, and gcc -O2 turns an if here into a mispredicted jump
+         */
+        root = i;
+        while ((child = 2 * root + 1) + 1 < end) {
+            child += (a[child] < a[child + 1]);
+            if (a[child] <= v) {
+                break;
+            }
+            a[root] = a[child];
+            root = child;
+        }
+        if (child + 1 == end && a[child] > v) {
+            a[root] = a[child];
+            root = child;
+        }
+        a[root] = v;
+    }
+}
+
 static inline
 unsigned char *append_uint8(unsigned char* dst, uint8_t n)
 {
@@ -224,7 +287,7 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     u_char      *ptr, *data, *end, *ciphers, *exts, *groups, *formats;
     size_t       ciphers_len, exts_len, groups_len, formats_len, len, num, i;
     uint16_t     n, version, greased = 0;
-    ngx_uint_t   min, prev, cnt;
+    uint16_t    *exts_buf;
 
     data = c->ssl->fp_ja_data.data;
     if (data == NULL) {
@@ -306,6 +369,14 @@ int ngx_ssl_ja3(ngx_connection_t *c)
     len = 6 + (ciphers_len / 2 + exts_len / 2 + groups_len / 2) * 6 + 3
           + formats_len * 4;
 
+    exts_buf = NULL;
+    if (exts_len != 0) {
+        exts_buf = ngx_palloc(ngx_ssl_fp_pool(c), exts_len);
+        if (exts_buf == NULL) {
+            return NGX_ERROR;
+        }
+    }
+
     ptr = ngx_pnalloc(ngx_ssl_fp_pool(c), len);
     if (ptr == NULL) {
         return NGX_ERROR;
@@ -339,32 +410,20 @@ int ngx_ssl_ja3(ngx_connection_t *c)
 
     /* extensions */
     num = 0;
-    prev = 0;
-    for ( ;; ) {
-        min = 0;
-        cnt = 0;
-        for (i = 0; i + 1 < exts_len; i += 2) {
-            n = ngx_ssl_fp_get_uint16(exts + i);
-            if (IS_GREASE_CODE(n) || (num != 0 && n <= prev)) {
-                continue;
-            }
-            if (cnt == 0 || n < min) {
-                min = n;
-                cnt = 1;
-            } else if (n == min) {
-                cnt++;
-            }
+    for (i = 0; i + 1 < exts_len; i += 2) {
+        n = ngx_ssl_fp_get_uint16(exts + i);
+        if (!IS_GREASE_CODE(n)) {
+            exts_buf[num++] = n;
         }
-        if (cnt == 0) {
-            break;
+    }
+
+    ngx_ssl_fp_sort_uint16(exts_buf, num);
+
+    for (i = 0; i < num; i++) {
+        if (i != 0) {
+            *ptr++ = '-';
         }
-        while (cnt--) {
-            if (num++ != 0) {
-                *ptr++ = '-';
-            }
-            ptr = append_uint16(ptr, (uint16_t) min);
-        }
-        prev = min;
+        ptr = append_uint16(ptr, exts_buf[i]);
     }
     *ptr++ = ',';
 
@@ -527,13 +586,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
     data += ciphers_len;
 
     if (cipher_count != 0) {
-        for (i = 1; i < cipher_count; i++) {
-            n = hash_buf[i];
-            for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
-                hash_buf[j] = hash_buf[j - 1];
-            }
-            hash_buf[j] = n;
-        }
+        ngx_ssl_fp_sort_uint16(hash_buf, cipher_count);
 
         if (SHA256_Init(&sha256) != 1) {
             ngx_log_error(NGX_LOG_WARN, c->log, 0,
@@ -712,13 +765,7 @@ int ngx_ssl_ja4(ngx_connection_t *c)
 
     /* extensions and sigalgs digest */
     if (exts_count != 0) {
-        for (i = 1; i < exts_count; i++) {
-            n = hash_buf[i];
-            for (j = i; j > 0 && hash_buf[j - 1] > n; j--) {
-                hash_buf[j] = hash_buf[j - 1];
-            }
-            hash_buf[j] = n;
-        }
+        ngx_ssl_fp_sort_uint16(hash_buf, exts_count);
 
         if (SHA256_Init(&sha256) != 1) {
             ngx_log_error(NGX_LOG_WARN, c->log, 0,
