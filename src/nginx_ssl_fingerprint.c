@@ -95,6 +95,280 @@ ngx_ssl_fp_sort_uint16(uint16_t *a, size_t n)
     }
 }
 
+#if (defined OPENSSL_IS_BORINGSSL || defined OPENSSL_IS_AWSLC)
+
+/* extension type + length */
+#define NGX_SSL_FP_EXT_HEADER_SIZE  (2 * sizeof(uint16_t))
+
+static ngx_int_t
+ngx_ssl_fp_put_uint16(u_char **p, u_char *end, uint16_t n)
+{
+    if ((size_t) (end - *p) < sizeof(uint16_t)) {
+        return NGX_ERROR;
+    }
+
+    *p = ngx_cpymem(*p, &n, sizeof(uint16_t));
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_ssl_fp_put_list(u_char **p, u_char *end, const u_char *body, size_t len,
+    size_t lensize)
+{
+    uint16_t  n;
+
+    /* a body shorter than its own length field is stored as an empty block */
+    if (body == NULL || len < lensize) {
+        len = 0;
+    }
+
+    if (lensize == sizeof(u_char) && len > 0xff) {
+        len = 0xff;
+    }
+
+    if (len == 0) {
+        if ((size_t) (end - *p) < lensize) {
+            return NGX_ERROR;
+        }
+
+        ngx_memzero(*p, lensize);
+        *p += lensize;
+
+        return NGX_OK;
+    }
+
+    if ((size_t) (end - *p) < len) {
+        return NGX_ERROR;
+    }
+
+    if (lensize == sizeof(u_char)) {
+        **p = (u_char) len;
+
+    } else {
+        n = (uint16_t) len;
+        ngx_memcpy(*p, &n, sizeof(uint16_t));
+    }
+
+    ngx_memcpy(*p + lensize, body + lensize, len - lensize);
+    *p += len;
+
+    return NGX_OK;
+}
+
+/*
+ * BoringSSL / AWS-LC: the fp_ja_data record of SSL_client_hello_get_ja_data()
+ * (OpenSSL patch), built from SSL_CLIENT_HELLO:
+ *
+ *   version, ciphers, extension types, supported_groups, ec_point_formats,
+ *   the highest supported_versions entry, signature_algorithms, ALPN;
+ *   every list behind a u16 length (ec_point_formats: u8)
+ *
+ * lengths and types in host byte order, list bodies as on the wire;
+ * returns the record length, or 0 if it does not fit cap or an extension
+ * is truncated
+ */
+static size_t
+ngx_ssl_fp_pack_ja_data(uint16_t version,
+    const u_char *ciphers, size_t ciphers_len,
+    const u_char *exts, size_t exts_len,
+    u_char *buf, size_t cap)
+{
+    size_t         i, len, groups_len, formats_len, sigalgs_len, supvers_len,
+                   alpn_len;
+    u_char        *p, *end, *exts_start;
+    uint16_t       type, n, max;
+    const u_char  *body, *groups, *formats, *sigalgs, *supvers, *alpn;
+
+    if (buf == NULL) {
+        return 0;
+    }
+
+    groups = NULL;
+    formats = NULL;
+    sigalgs = NULL;
+    supvers = NULL;
+    alpn = NULL;
+    groups_len = 0;
+    formats_len = 0;
+    sigalgs_len = 0;
+    supvers_len = 0;
+    alpn_len = 0;
+
+    p = buf;
+    end = buf + cap;
+
+    if (ngx_ssl_fp_put_uint16(&p, end, version) != NGX_OK) {
+        return 0;
+    }
+
+    if (ciphers_len > 0xffff
+        || ngx_ssl_fp_put_uint16(&p, end, (uint16_t) ciphers_len) != NGX_OK
+        || (size_t) (end - p) < ciphers_len)
+    {
+        return 0;
+    }
+
+    if (ciphers_len > 0) {
+        p = ngx_cpymem(p, ciphers, ciphers_len);
+    }
+
+    exts_start = p;
+    if (ngx_ssl_fp_put_uint16(&p, end, 0) != NGX_OK) {
+        return 0;
+    }
+
+    if (exts == NULL) {
+        exts_len = 0;
+    }
+
+    for (i = 0; i < exts_len; i += NGX_SSL_FP_EXT_HEADER_SIZE + len) {
+        if (exts_len - i < NGX_SSL_FP_EXT_HEADER_SIZE) {
+            return 0;
+        }
+
+        type = (uint16_t) ((exts[i] << 8) | exts[i + 1]);
+        len = (size_t) ((exts[i + 2] << 8) | exts[i + 3]);
+
+        if (exts_len - i - NGX_SSL_FP_EXT_HEADER_SIZE < len
+            || ngx_ssl_fp_put_uint16(&p, end, type) != NGX_OK)
+        {
+            return 0;
+        }
+
+        body = exts + i + NGX_SSL_FP_EXT_HEADER_SIZE;
+
+        /* the first occurrence wins */
+        switch (type) {
+
+        case TLSEXT_TYPE_supported_groups:
+            if (groups == NULL) {
+                groups = body;
+                groups_len = len;
+            }
+            break;
+
+        case TLSEXT_TYPE_ec_point_formats:
+            if (formats == NULL) {
+                formats = body;
+                formats_len = len;
+            }
+            break;
+
+        case TLSEXT_TYPE_signature_algorithms:
+            if (sigalgs == NULL) {
+                sigalgs = body;
+                sigalgs_len = len;
+            }
+            break;
+
+        case TLSEXT_TYPE_supported_versions:
+            if (supvers == NULL) {
+                supvers = body;
+                supvers_len = len;
+            }
+            break;
+
+        case TLSEXT_TYPE_application_layer_protocol_negotiation:
+            if (alpn == NULL) {
+                alpn = body;
+                alpn_len = len;
+            }
+            break;
+        }
+    }
+
+    len = p - exts_start - sizeof(uint16_t);
+    if (len > 0xffff) {
+        return 0;
+    }
+
+    n = (uint16_t) len;
+    ngx_memcpy(exts_start, &n, sizeof(uint16_t));
+
+    if (ngx_ssl_fp_put_list(&p, end, groups, groups_len, sizeof(uint16_t))
+        != NGX_OK)
+    {
+        return 0;
+    }
+
+    if (ngx_ssl_fp_put_list(&p, end, formats, formats_len, sizeof(u_char))
+        != NGX_OK)
+    {
+        return 0;
+    }
+
+    /* the highest non-GREASE supported_versions entry, or 0 */
+    max = 0;
+
+    if (supvers != NULL && supvers_len >= 3) {
+        for (i = 1; i + 1 < supvers_len && i + 1 <= supvers[0]; i += 2) {
+            n = (uint16_t) ((supvers[i] << 8) | supvers[i + 1]);
+            if (!IS_GREASE_CODE(n) && n > max) {
+                max = n;
+            }
+        }
+    }
+
+    if (ngx_ssl_fp_put_uint16(&p, end, max) != NGX_OK) {
+        return 0;
+    }
+
+    if (ngx_ssl_fp_put_list(&p, end, sigalgs, sigalgs_len, sizeof(uint16_t))
+        != NGX_OK)
+    {
+        return 0;
+    }
+
+    if (ngx_ssl_fp_put_list(&p, end, alpn, alpn_len, sizeof(uint16_t))
+        != NGX_OK)
+    {
+        return 0;
+    }
+
+    return p - buf;
+}
+
+void
+ngx_ssl_fp_capture_client_hello(ngx_connection_t *c,
+    const SSL_CLIENT_HELLO *ch)
+{
+    size_t      len;
+    u_char      buf[NGX_SSL_JA_DATA_SIZE];
+    ngx_str_t  *ja;
+
+    if (c == NULL || c->ssl == NULL) {
+        return;
+    }
+
+    ja = &c->ssl->fp_ja_data;
+
+    if (ja->data != NULL) {
+        return;
+    }
+
+    len = ngx_ssl_fp_pack_ja_data(ch->version,
+                                  ch->cipher_suites, ch->cipher_suites_len,
+                                  ch->extensions, ch->extensions_len,
+                                  buf, NGX_SSL_JA_DATA_SIZE);
+    if (len == 0) {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                      "ngx_ssl_fp_capture_client_hello: "
+                      "ClientHello does not fit fp_ja_data");
+        return;
+    }
+
+    ja->data = ngx_pnalloc(c->pool, len);
+    if (ja->data == NULL) {
+        return;
+    }
+
+    ngx_memcpy(ja->data, buf, len);
+    ja->len = len;
+}
+
+#endif
+
 static inline
 unsigned char *append_uint8(unsigned char* dst, uint8_t n)
 {
