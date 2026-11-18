@@ -13,6 +13,7 @@ A high performance nginx module for ja3 ja4 and http2 fingerprint.
 | nginx-1.29.8 |    ✅        |     ✅        |               |
 | nginx-1.30.0 |    ✅        |     ✅        |               |
 | nginx-1.31.7 |    ✅        |     ✅        |               |
+| nginx-1.31.9 |    ✅        |     ✅        |               |
 
 ## Configuration
 
@@ -99,13 +100,13 @@ stream {
 # Clone
 
 $ git clone -b openssl-3.6.2 --depth=1 https://github.com/openssl/openssl
-$ git clone -b release-1.31.7 --depth=1 https://github.com/nginx/nginx
+$ git clone -b release-1.31.9 --depth=1 https://github.com/nginx/nginx
 $ git clone -b master https://github.com/phuslu/nginx-ssl-fingerprint
 
 # Patch
 
 $ patch -p1 -d openssl < nginx-ssl-fingerprint/patches/openssl-3.6.2.patch
-$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/release-1.31.7.patch
+$ patch -p1 -d nginx < nginx-ssl-fingerprint/patches/release-1.31.9.patch
 
 # Build
 
