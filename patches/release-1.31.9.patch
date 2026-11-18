@@ -1,5 +1,5 @@
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 8ba0122d4..173348aad 100644
+index 8ba0122..173348a 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -14,6 +14,7 @@
@@ -66,7 +66,7 @@ index 8ba0122d4..173348aad 100644
                                    (const unsigned char **) &p, &len)
          == 0)
 diff --git a/src/event/ngx_event_openssl.h b/src/event/ngx_event_openssl.h
-index 1538cf062..63c220c4a 100644
+index 1538cf0..63c220c 100644
 --- a/src/event/ngx_event_openssl.h
 +++ b/src/event/ngx_event_openssl.h
 @@ -145,6 +145,12 @@ struct ngx_ssl_connection_s {
@@ -83,7 +83,7 @@ index 1538cf062..63c220c4a 100644
  
  
 diff --git a/src/http/v2/ngx_http_v2.c b/src/http/v2/ngx_http_v2.c
-index 807dd59c1..5e75865b8 100644
+index 807dd59..5e75865 100644
 --- a/src/http/v2/ngx_http_v2.c
 +++ b/src/http/v2/ngx_http_v2.c
 @@ -305,6 +305,8 @@ ngx_http_v2_init(ngx_event_t *rev)
@@ -172,7 +172,7 @@ index 807dd59c1..5e75865b8 100644
      while (!ngx_queue_empty(&h2c->waiting)) {
          q = ngx_queue_head(&h2c->waiting);
 diff --git a/src/http/v2/ngx_http_v2.h b/src/http/v2/ngx_http_v2.h
-index b2eaa5787..26ecb990b 100644
+index b2eaa57..26ecb99 100644
 --- a/src/http/v2/ngx_http_v2.h
 +++ b/src/http/v2/ngx_http_v2.h
 @@ -17,6 +17,8 @@
