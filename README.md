@@ -16,10 +16,11 @@ A high performance nginx module for ja3 ja4 and http2 fingerprint.
 | nginx-1.31.7 |    ✅        |     ✅        |               |
 | nginx-1.31.9 |    ✅        |     ✅        |               |
 
-nginx-1.30.7 and nginx-1.31.9 are the releases fixing the HTTP/2
+#### NOTE about CVE-2026-123633 and CVE-2026-123007:
+___nginx-1.30.7 and nginx-1.31.9 are the releases fixing the HTTP/2
 vulnerabilities CVE-2026-123633 (use-after-free) and CVE-2026-123007
 (send_window integer underflow); their patches carry the same
-fingerprint capture logic as the previous supported releases.
+fingerprint capture logic as the previous supported releases.___
 
 ## Configuration
 
