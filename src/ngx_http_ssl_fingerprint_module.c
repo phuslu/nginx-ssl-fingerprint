@@ -23,21 +23,29 @@ static ngx_int_t ngx_http_http2_fingerprint(ngx_http_request_t *r,
 typedef struct {
     ngx_flag_t  ja3;
     ngx_flag_t  ja4;
+    ngx_flag_t  ja3_hash_sorted;
 } ngx_http_ssl_fingerprint_conf_t;
 
 static ngx_command_t  ngx_http_ssl_fingerprint_commands[] = {
-    { ngx_string("ngx_ja3"),
+    { ngx_string("ja3"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_ssl_fingerprint_conf_t, ja3),
       NULL },
 
-    { ngx_string("ngx_ja4"),
+    { ngx_string("ja4"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_ssl_fingerprint_conf_t, ja4),
+      NULL },
+
+    { ngx_string("ja3_hash_sorted"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_ssl_fingerprint_conf_t, ja3_hash_sorted),
       NULL },
 
       ngx_null_command
@@ -101,7 +109,7 @@ ngx_http_ssl_greased(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(r->connection) != NGX_OK) {
+    if (ngx_ssl_ja3(r->connection, lcf->ja3_hash_sorted) != NGX_OK) {
         return NGX_OK;
     }
 
@@ -132,7 +140,7 @@ ngx_http_ssl_ja3(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(r->connection) != NGX_OK) {
+    if (ngx_ssl_ja3(r->connection, lcf->ja3_hash_sorted) != NGX_OK) {
         return NGX_OK;
     }
 
@@ -163,7 +171,7 @@ ngx_http_ssl_ja3_hash(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3_hash(r->connection) != NGX_OK) {
+    if (ngx_ssl_ja3_hash(r->connection, lcf->ja3_hash_sorted) != NGX_OK) {
         return NGX_OK;
     }
 
@@ -246,6 +254,7 @@ ngx_http_ssl_fingerprint_create_loc_conf(ngx_conf_t *cf)
 
     conf->ja3 = NGX_CONF_UNSET;
     conf->ja4 = NGX_CONF_UNSET;
+    conf->ja3_hash_sorted = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -259,6 +268,7 @@ ngx_http_ssl_fingerprint_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
     ngx_conf_merge_value(conf->ja3, prev->ja3, 1);
     ngx_conf_merge_value(conf->ja4, prev->ja4, 1);
+    ngx_conf_merge_value(conf->ja3_hash_sorted, prev->ja3_hash_sorted, 0);
 
     return NGX_CONF_OK;
 }

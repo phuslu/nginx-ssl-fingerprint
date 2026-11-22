@@ -282,7 +282,7 @@ unsigned char *append_uint32(unsigned char* dst, uint32_t n)
  *      NGX_OK - c->ssl->fp_ja3_str is already set
  *      NGX_ERROR - something went wrong
  */
-int ngx_ssl_ja3(ngx_connection_t *c)
+int ngx_ssl_ja3(ngx_connection_t *c, ngx_flag_t sorted)
 {
     u_char      *ptr, *data, *end, *ciphers, *exts, *groups, *formats;
     size_t       ciphers_len, exts_len, groups_len, formats_len, len, num, i;
@@ -417,7 +417,9 @@ int ngx_ssl_ja3(ngx_connection_t *c)
         }
     }
 
-    ngx_ssl_fp_sort_uint16(exts_buf, num);
+    if (sorted) {
+        ngx_ssl_fp_sort_uint16(exts_buf, num);
+    }
 
     for (i = 0; i < num; i++) {
         if (i != 0) {
@@ -473,7 +475,7 @@ invalid:
  *      NGX_OK - c->ssl->fp_ja3_hash is alread set
  *      NGX_ERROR - something went wrong
  */
-int ngx_ssl_ja3_hash(ngx_connection_t *c)
+int ngx_ssl_ja3_hash(ngx_connection_t *c, ngx_flag_t sorted)
 {
     ngx_md5_t ctx;
     u_char hash_buf[16];
@@ -482,7 +484,7 @@ int ngx_ssl_ja3_hash(ngx_connection_t *c)
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(c) != NGX_OK) {
+    if (ngx_ssl_ja3(c, sorted) != NGX_OK) {
         return NGX_ERROR;
     }
 

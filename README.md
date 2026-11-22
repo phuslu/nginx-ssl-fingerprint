@@ -26,21 +26,27 @@ fingerprint capture logic as the previous supported releases.___
 
 ### Directives
 
-| Name    | Default | Context (http)                | Context (stream) | Comments |
-| ------- | ------- | ----------------------------- | ---------------- | -------- |
-| ngx_ja3 | on      | http, server, location        | stream, server   | Enable/disable the ja3 calculation; when off, `$http_ssl_ja3`, `$http_ssl_ja3_hash`, `$http_ssl_greased` (and the `$stream_ssl_*` counterparts) are not found. |
-| ngx_ja4 | on      | http, server, location        | stream, server   | Enable/disable the ja4 calculation; when off, `$http_ssl_ja4` is not found. |
+| Name            | Default | Context (http)                | Context (stream) | Comments |
+| --------------- | ------- | ----------------------------- | ---------------- | -------- |
+| ja3             | on      | http, server, location        | stream, server   | Enable/disable the ja3 calculation; when off, `$http_ssl_ja3`, `$http_ssl_ja3_hash`, `$http_ssl_greased` (and the `$stream_ssl_*` counterparts) are not found. |
+| ja4             | on      | http, server, location        | stream, server   | Enable/disable the ja4 calculation; when off, `$http_ssl_ja4` is not found. |
+| ja3_hash_sorted | off     | http, server, location        | stream, server   | Sort the ja3 extension list (and therefore the hash) instead of keeping the ClientHello wire order; the default follows the JA3 specification. |
 
 Useful for multi-tenant setups where only some virtual servers or
-locations need fingerprints.
+locations need fingerprints.  The ja3 string is computed once per
+connection, so the first request's `ja3_hash_sorted` setting wins if
+several locations with different settings share one connection.
 
 ```nginx
 http {
     server {
         listen                 127.0.0.1:4433 ssl;
         location /healthz/ {
-            ngx_ja3 off;             # no fingerprinting on hot probes
-            ngx_ja4 off;
+            ja3 off;                # no fingerprinting on hot probes
+            ja4 off;
+        }
+        location /legacy/ {
+            ja3_hash_sorted on;     # JA3N-style sorted extensions
         }
     }
 }
