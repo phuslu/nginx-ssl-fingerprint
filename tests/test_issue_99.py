@@ -20,9 +20,9 @@ base extensions in their usual order.
                          drops SNI/ALPN from its list and sorts 32
                          (insertion) but counts 34
 
-Requests hit the /sorted/ location (ja3_hash_sorted on, see #108), so
-the ja3 extension field is sorted; with the default (wire order) this
-test would compare against the wire sequence instead.
+The module default sorts the ja3 extension list (ja3_hash_sorted is on
+unless switched off per location, see #108), so the expected extension
+field here is sorted.
 
 Expected values are built here with sorted():
 
@@ -129,8 +129,7 @@ def main():
     for name, n_exts, n_ciphers, opts in CASES:
         ext, ciphers = hello(n_exts, n_ciphers, **opts)
         if run_conversation(name, https_conversation(args.host, args.port,
-                                                     ext, ciphers=ciphers,
-                                                     request=b"GET /sorted/ HTTP/1.0\r\n\r\n")):
+                                                     ext, ciphers=ciphers)):
             sent.append((name, list(ext), ciphers))
         else:
             failures.append("%s: handshake failed" % name)

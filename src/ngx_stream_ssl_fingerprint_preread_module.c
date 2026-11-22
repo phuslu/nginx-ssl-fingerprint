@@ -301,7 +301,7 @@ ngx_stream_ssl_fingerprint_merge_srv_conf(ngx_conf_t *cf, void *parent,
 
     ngx_conf_merge_value(conf->ja3, prev->ja3, 1);
     ngx_conf_merge_value(conf->ja4, prev->ja4, 1);
-    ngx_conf_merge_value(conf->ja3_hash_sorted, prev->ja3_hash_sorted, 0);
+    ngx_conf_merge_value(conf->ja3_hash_sorted, prev->ja3_hash_sorted, 1);
 
     return NGX_CONF_OK;
 }

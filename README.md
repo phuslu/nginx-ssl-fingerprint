@@ -30,7 +30,7 @@ fingerprint capture logic as the previous supported releases.___
 | --------------- | ------- | ----------------------------- | ---------------- | -------- |
 | ja3             | on      | http, server, location, "if"  | stream, server   | Enable/disable the ja3 calculation; when off, `$http_ssl_ja3`, `$http_ssl_ja3_hash`, `$http_ssl_greased` (and the `$stream_ssl_*` counterparts) are not found. |
 | ja4             | on      | http, server, location, "if"  | stream, server   | Enable/disable the ja4 calculation; when off, `$http_ssl_ja4` is not found. |
-| ja3_hash_sorted | off     | http, server, location, "if"  | stream, server   | Sort the ja3 extension list (and therefore the hash) instead of keeping the ClientHello wire order; the default follows the JA3 specification. |
+| ja3_hash_sorted | on      | http, server, location, "if"  | stream, server   | Sort the ja3 extension list (and therefore the hash), the module's historical behaviour; `off` keeps the ClientHello wire order as the JA3 specification defines. |
 
 Useful for multi-tenant setups where only some virtual servers or
 locations need fingerprints.  The ja3 string is computed once per
@@ -45,8 +45,8 @@ http {
             ja3 off;                # no fingerprinting on hot probes
             ja4 off;
         }
-        location /legacy/ {
-            ja3_hash_sorted on;     # JA3N-style sorted extensions
+        location /spec/ {
+            ja3_hash_sorted off;    # specification wire order
         }
     }
 }

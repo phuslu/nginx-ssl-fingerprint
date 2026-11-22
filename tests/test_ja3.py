@@ -10,10 +10,10 @@ Sends one ClientHello with fully controlled, known content:
   groups [x25519(29)], formats [0]
 
 and asserts the exact expected JA3 string — GREASE cipher removed from
-the cipher list and the greased flag set, extensions, groups and point
-formats in wire order (the JA3 specification order, the default since
-#108; ja3_hash_sorted on switches extensions to sorted) — plus its MD5
-hash.
+the cipher list and the greased flag set, extension list sorted (the
+module default, matching its historical behaviour), groups and point
+formats in wire order — plus its MD5 hash.  ja3_hash_sorted off switches
+extensions to the specification wire order (see test_issue_108.py).
 """
 
 import sys
@@ -25,10 +25,10 @@ from tls_client import (base_extensions, DEFAULT_CIPHERS, ec_point_formats_ext,
 
 # GREASE cipher first: must be filtered from the ja3 cipher list and set
 # the greased flag; extensions are sent in wire order 51-43-10-13-50-11
-# (plus a GREASE extension, also filtered) and ja3 keeps that order
+# (plus a GREASE extension, also filtered) but ja3 prints them sorted
 CIPHERS = [0x0a0a] + DEFAULT_CIPHERS
 
-EXPECTED_JA3 = "771,4865-255,51-43-10-13-50-11,29,0"
+EXPECTED_JA3 = "771,4865-255,10-11-13-43-50-51,29,0"
 
 
 def main():
