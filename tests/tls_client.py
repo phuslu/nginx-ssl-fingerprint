@@ -259,6 +259,9 @@ def test_args(description):
     ap.add_argument("--port", type=int, default=4433)
     ap.add_argument("--log", default="access.log",
                     help="nginx access_log file with the fingerprint format")
+    ap.add_argument("--nginx-bin", default=None,
+                    help="compiled nginx binary, for tests that start "
+                         "their own instance (passed by run.sh)")
     return ap.parse_args()
 
 
