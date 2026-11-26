@@ -124,16 +124,18 @@ jobs:
           grep -E '^ja3_hash: [0-9a-f]{32}$' stream.txt
           grep -E '^ja4: t[0-9]{2}' stream.txt
           diff <(grep -E '^(ja3|ja3_hash|ja4|greased): ' http.txt) <(grep -E '^(ja3|ja3_hash|ja4|greased): ' stream.txt)
-      # tests.yml fingerprint-tests minus repro_86.py and test_issue_92.py: both
+      # tests/run.sh BASE_TESTS minus repro_86.py and test_issue_92.py: both
       # libraries reject their truncated ECH body before any callback (stock
       # nginx too).
       - name: Tests
         run: |
           mkdir -m 1777 asan-suite
+          base=$(sed -n 's/^BASE_TESTS="\(.*\)"$/\1/p' nginx-ssl-fingerprint/tests/run.sh)
+          TESTS=$(echo "$base" | tr ' ' '\n' | grep -v -x -e repro_86.py -e test_issue_92.py | tr '\n' ' ')
+          export TESTS
           bash nginx-ssl-fingerprint/tests/run.sh
         env:
           NGINX_BIN: ${{ github.workspace }}/nginx/objs/nginx
-          TESTS: "test_ja3.py test_ja4.py test_h2fp.py test_h2fp_no_pseudo.py test_issue_82.py test_issue_84.py test_issue_56.py test_issue_99.py"
           TEST_PORT: "5433"
           STREAM_PORT: "5443"
           ASAN_OPTIONS: "detect_leaks=0:log_path=${{ github.workspace }}/asan-suite/asan"
