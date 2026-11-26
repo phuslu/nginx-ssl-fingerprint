@@ -11,8 +11,8 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-int ngx_ssl_ja3(ngx_connection_t *c);
-int ngx_ssl_ja3_hash(ngx_connection_t *c);
+int ngx_ssl_ja3(ngx_connection_t *c, ngx_flag_t sorted);
+int ngx_ssl_ja3_hash(ngx_connection_t *c, ngx_flag_t sorted);
 int ngx_ssl_ja4(ngx_connection_t *c);
 int ngx_http2_fingerprint(ngx_http_request_t *r, ngx_str_t *out);
 

@@ -38,7 +38,7 @@ TEST_PORT="${TEST_PORT:-4433}"
 STREAM_PORT="${STREAM_PORT:-4443}"
 STRICT="${STRICT:-0}"
 
-BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py test_h2fp_no_pseudo.py repro_86.py test_issue_82.py test_issue_84.py test_issue_92.py test_issue_56.py test_issue_99.py"
+BASE_TESTS="test_ja3.py test_ja4.py test_h2fp.py test_h2fp_no_pseudo.py repro_86.py test_issue_82.py test_issue_84.py test_issue_92.py test_issue_56.py test_issue_99.py test_issue_108.py test_contexts.py"
 KNOWN_TESTS=""
 TESTS="${TESTS:-$BASE_TESTS $KNOWN_TESTS}"
 KNOWN="${KNOWN:-$KNOWN_TESTS}"
@@ -123,7 +123,8 @@ XPASSED=""
 for t in $TESTS; do
     echo "---- $t"
     if "$PYTHONBIN" "$TESTS_DIR/$t" \
-        --host 127.0.0.1 --port "$TEST_PORT" --log "$WORK/logs/access.log"
+        --host 127.0.0.1 --port "$TEST_PORT" --log "$WORK/logs/access.log" \
+        --nginx-bin "$NGINX_BIN"
     then
         if is_known "$t" && [ "$STRICT" != "1" ]; then
             echo "RESULT: XPASS ($t: issue seems fixed)"

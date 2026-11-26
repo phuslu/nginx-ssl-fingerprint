@@ -9,8 +9,8 @@
 #include <ngx_stream.h>
 #include <ngx_md5.h>
 
-extern int ngx_ssl_ja3(ngx_connection_t *c);
-extern int ngx_ssl_ja3_hash(ngx_connection_t *c);
+extern int ngx_ssl_ja3(ngx_connection_t *c, ngx_flag_t sorted);
+extern int ngx_ssl_ja3_hash(ngx_connection_t *c, ngx_flag_t sorted);
 extern int ngx_ssl_ja4(ngx_connection_t *c);
 
 static ngx_int_t ngx_stream_ssl_fingerprint_preread_init(ngx_conf_t *cf);
@@ -21,21 +21,29 @@ static char *ngx_stream_ssl_fingerprint_merge_srv_conf(ngx_conf_t *cf,
 typedef struct {
     ngx_flag_t  ja3;
     ngx_flag_t  ja4;
+    ngx_flag_t  ja3_hash_sorted;
 } ngx_stream_ssl_fingerprint_conf_t;
 
 static ngx_command_t  ngx_stream_ssl_fingerprint_commands[] = {
-    { ngx_string("ngx_ja3"),
+    { ngx_string("ja3"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ssl_fingerprint_conf_t, ja3),
       NULL },
 
-    { ngx_string("ngx_ja4"),
+    { ngx_string("ja4"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ssl_fingerprint_conf_t, ja4),
+      NULL },
+
+    { ngx_string("ja3_hash_sorted"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_ssl_fingerprint_conf_t, ja3_hash_sorted),
       NULL },
 
       ngx_null_command
@@ -89,7 +97,7 @@ ngx_stream_ssl_greased(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(s->connection) != NGX_OK)
+    if (ngx_ssl_ja3(s->connection, scf->ja3_hash_sorted) != NGX_OK)
     {
         return NGX_OK;
     }
@@ -127,7 +135,7 @@ ngx_stream_ssl_ja3(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3(s->connection) != NGX_OK)
+    if (ngx_ssl_ja3(s->connection, scf->ja3_hash_sorted) != NGX_OK)
     {
         return NGX_OK;
     }
@@ -164,7 +172,7 @@ ngx_stream_ssl_ja3_hash(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-    if (ngx_ssl_ja3_hash(s->connection) != NGX_OK)
+    if (ngx_ssl_ja3_hash(s->connection, scf->ja3_hash_sorted) != NGX_OK)
     {
         return NGX_OK;
     }
@@ -279,6 +287,7 @@ ngx_stream_ssl_fingerprint_create_srv_conf(ngx_conf_t *cf)
 
     conf->ja3 = NGX_CONF_UNSET;
     conf->ja4 = NGX_CONF_UNSET;
+    conf->ja3_hash_sorted = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -292,6 +301,7 @@ ngx_stream_ssl_fingerprint_merge_srv_conf(ngx_conf_t *cf, void *parent,
 
     ngx_conf_merge_value(conf->ja3, prev->ja3, 1);
     ngx_conf_merge_value(conf->ja4, prev->ja4, 1);
+    ngx_conf_merge_value(conf->ja3_hash_sorted, prev->ja3_hash_sorted, 1);
 
     return NGX_CONF_OK;
 }

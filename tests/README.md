@@ -30,7 +30,10 @@ dependencies are bootstrapped once into `.venv`/`tlsfuzzer`.
 | `repro_86.py`     | must pass    | regression for [#86](https://github.com/phuslu/nginx-ssl-fingerprint/issues/86) (fixed): extensions unknown to OpenSSL are fingerprinted |
 | `test_issue_84.py`| must pass    | regression for [#84](https://github.com/phuslu/nginx-ssl-fingerprint/issues/84) (fixed): the new ALPS codepoint 17613 is fingerprinted |
 | `test_issue_92.py`| must pass    | regression for [#92](https://github.com/phuslu/nginx-ssl-fingerprint/issues/92) (fixed): ECH 0xfe0d + ALPS 17613 (Chrome-like) are fingerprinted |
-| `test_issue_56.py`| must pass    | [#56](https://github.com/phuslu/nginx-ssl-fingerprint/issues/56): `ngx_ja3`/`ngx_ja4` directives disable the right variables per location |
+| `test_issue_56.py`| must pass    | [#56](https://github.com/phuslu/nginx-ssl-fingerprint/issues/56): `ja3`/`ja4` directives disable the right variables per location |
+| `test_issue_99.py`| must pass    | [#99](https://github.com/phuslu/nginx-ssl-fingerprint/issues/99): ja3/ja4 list sorting on both sides of the insertion/heap sort threshold |
+| `test_issue_108.py`| must pass   | [#108](https://github.com/phuslu/nginx-ssl-fingerprint/issues/108): `ja3_hash_sorted` switches the ja3 extension order (sorted default, wire order off) |
+| `test_contexts.py` | must pass   | directive contexts: http/server/location merge chain for `ja3_hash_sorted`, "if" in location (probed; skipped when built without the rewrite module), stream main/server |
 | `test_issue_82.py`| must pass    | regression for [#82](https://github.com/phuslu/nginx-ssl-fingerprint/issues/82) (fixed): the h2 fingerprint is per-request on multiplexed connections |
 
 Known-issue tests (none at the moment) are repros for open upstream

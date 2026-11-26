@@ -20,6 +20,10 @@ base extensions in their usual order.
                          drops SNI/ALPN from its list and sorts 32
                          (insertion) but counts 34
 
+The module default sorts the ja3 extension list (ja3_hash_sorted is on
+unless switched off per location, see #108), so the expected extension
+field here is sorted.
+
 Expected values are built here with sorted():
 
   ja3   extension field = sorted non-GREASE decimal types joined by '-'
