@@ -1,0 +1,182 @@
+diff --git a/include/openssl/ssl.h.in b/include/openssl/ssl.h.in
+index 95640d1..152e932 100644
+--- a/include/openssl/ssl.h.in
++++ b/include/openssl/ssl.h.in
+@@ -1968,6 +1968,8 @@ size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out);
+ size_t SSL_client_hello_get0_compression_methods(SSL *s,
+     const unsigned char **out);
+ int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen);
++size_t SSL_client_hello_get_ja_data(SSL *s, unsigned char *data,
++                                     size_t data_size);
+ int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts,
+     size_t *num_exts);
+ int SSL_client_hello_get0_ext(SSL *s, unsigned int type,
+diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
+index 549bd7d..76d961d 100644
+--- a/ssl/ssl_lib.c
++++ b/ssl/ssl_lib.c
+@@ -7080,6 +7080,164 @@ err:
+     return 0;
+ }
+ 
++static int ja_data_put_uint16(unsigned char **ptr, const unsigned char *end,
++                              uint16_t n)
++{
++    if ((size_t)(end - *ptr) < sizeof(n))
++        return 0;
++
++    memcpy(*ptr, &n, sizeof(n));
++    *ptr += sizeof(n);
++
++    return 1;
++}
++
++static int ja_data_put_list(unsigned char **ptr, const unsigned char *end,
++                            const unsigned char *body, size_t len,
++                            size_t lensize)
++{
++    if (body == NULL || len < lensize)
++        len = 0;
++
++    if (lensize == sizeof(uint8_t) && len > 0xff)
++        len = 0xff;
++
++    if (len == 0) {
++        if ((size_t)(end - *ptr) < lensize)
++            return 0;
++        memset(*ptr, 0, lensize);
++        *ptr += lensize;
++        return 1;
++    }
++
++    if ((size_t)(end - *ptr) < len)
++        return 0;
++
++    if (lensize == sizeof(uint8_t)) {
++        **ptr = (unsigned char)len;
++    } else {
++        uint16_t n = (uint16_t)len;
++
++        memcpy(*ptr, &n, sizeof(n));
++    }
++    memcpy(*ptr + lensize, body + lensize, len - lensize);
++    *ptr += len;
++
++    return 1;
++}
++
++size_t SSL_client_hello_get_ja_data(SSL *s, unsigned char *data,
++                                    size_t data_size)
++{
++    const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
++    const unsigned char *groups = NULL, *formats = NULL, *sigalgs = NULL,
++                        *supvers = NULL, *alpn = NULL;
++    size_t groups_len = 0, formats_len = 0, sigalgs_len = 0,
++           supvers_len = 0, alpn_len = 0;
++    size_t num, i;
++    unsigned int type;
++    uint16_t version = 0, n;
++    unsigned char *ptr = data, *exts_len;
++    const unsigned char *end;
++    PACKET exts, ext;
++
++    if (sc == NULL || sc->clienthello == NULL || data == NULL)
++        return 0;
++
++    end = data + data_size;
++
++    if (!ja_data_put_uint16(&ptr, end,
++                            (uint16_t)sc->clienthello->legacy_version))
++        return 0;
++
++    num = PACKET_remaining(&sc->clienthello->ciphersuites);
++    if (num > 0xffff
++        || !ja_data_put_uint16(&ptr, end, (uint16_t)num)
++        || (size_t)(end - ptr) < num)
++        return 0;
++    if (num > 0) {
++        memcpy(ptr, PACKET_data(&sc->clienthello->ciphersuites), num);
++        ptr += num;
++    }
++
++    exts_len = ptr;
++    if (!ja_data_put_uint16(&ptr, end, 0))
++        return 0;
++
++    exts = sc->clienthello->extensions;
++    while (PACKET_remaining(&exts) > 0) {
++        if (!PACKET_get_net_2(&exts, &type)
++            || !PACKET_get_length_prefixed_2(&exts, &ext)
++            || !ja_data_put_uint16(&ptr, end, (uint16_t)type))
++            return 0;
++
++        switch (type) {
++        case TLSEXT_TYPE_supported_groups:
++            if (groups == NULL) {
++                groups = PACKET_data(&ext);
++                groups_len = PACKET_remaining(&ext);
++            }
++            break;
++        case TLSEXT_TYPE_ec_point_formats:
++            if (formats == NULL) {
++                formats = PACKET_data(&ext);
++                formats_len = PACKET_remaining(&ext);
++            }
++            break;
++        case TLSEXT_TYPE_signature_algorithms:
++            if (sigalgs == NULL) {
++                sigalgs = PACKET_data(&ext);
++                sigalgs_len = PACKET_remaining(&ext);
++            }
++            break;
++        case TLSEXT_TYPE_supported_versions:
++            if (supvers == NULL) {
++                supvers = PACKET_data(&ext);
++                supvers_len = PACKET_remaining(&ext);
++            }
++            break;
++        case TLSEXT_TYPE_application_layer_protocol_negotiation:
++            if (alpn == NULL) {
++                alpn = PACKET_data(&ext);
++                alpn_len = PACKET_remaining(&ext);
++            }
++            break;
++        }
++    }
++
++    num = ptr - exts_len - sizeof(n);
++    if (num > 0xffff)
++        return 0;
++    n = (uint16_t)num;
++    memcpy(exts_len, &n, sizeof(n));
++
++    if (!ja_data_put_list(&ptr, end, groups, groups_len, sizeof(uint16_t)))
++        return 0;
++
++    if (!ja_data_put_list(&ptr, end, formats, formats_len, sizeof(uint8_t)))
++        return 0;
++
++    if (supvers != NULL && supvers_len >= 3) {
++        for (i = 1; i + 1 < supvers_len && i + 1 <= supvers[0]; i += 2) {
++            n = ((uint16_t)supvers[i] << 8) | (uint16_t)supvers[i + 1];
++            if (((n & 0x0f0f) != 0x0a0a || (n & 0xff) != (n >> 8))
++                && n > version)
++                version = n;
++        }
++    }
++
++    if (!ja_data_put_uint16(&ptr, end, version))
++        return 0;
++
++    if (!ja_data_put_list(&ptr, end, sigalgs, sigalgs_len, sizeof(uint16_t)))
++        return 0;
++
++    if (!ja_data_put_list(&ptr, end, alpn, alpn_len, sizeof(uint16_t)))
++        return 0;
++
++    return ptr - data;
++}
++
+ int SSL_client_hello_get_extension_order(SSL *s, uint16_t *exts, size_t *num_exts)
+ {
+     RAW_EXTENSION *ext;
